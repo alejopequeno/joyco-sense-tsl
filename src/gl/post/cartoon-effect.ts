@@ -1,6 +1,7 @@
 import {
   luminance,
   mix,
+  rtt,
   screenSize,
   screenUV,
   smoothstep,
@@ -16,6 +17,7 @@ import { blendDarken, blendScreen } from '@/gl/nodes/blend'
 import { halftoneDots, lines, rotateUv } from '@/gl/nodes/halftone'
 import { paper } from '@/gl/nodes/paper'
 import { sobel } from '@/gl/nodes/sobel'
+import { chromaticAberration } from '@/gl/post/chromatic-aberration'
 import type { PostEffect, ScenePass } from '@/gl/post/post-effect'
 
 /**
@@ -62,7 +64,19 @@ export class CartoonEffect implements PostEffect {
   private readonly mid = uniform(0.62)
   private readonly light = uniform(0.62)
 
+  /** RGB split at the frame edge, in pixels. */
+  private readonly aberration = uniform(100)
+
   build(scenePass: ScenePass): Node<'vec4'> {
+    // The aberration has to sample its input at shifted coordinates, and you
+    // cannot sample a computed graph — so the composite is rendered to a
+    // texture first. `rtt` with no size tracks the viewport on its own. This is
+    // the sketch's second FBO, minus the manual plumbing.
+    const composite = rtt(this.buildComposite(scenePass))
+    return chromaticAberration(composite, this.aberration)
+  }
+
+  private buildComposite(scenePass: ScenePass): Node<'vec4'> {
     const color = scenePass.getTextureNode('output')
     const normal = scenePass.getTextureNode('normal')
 
