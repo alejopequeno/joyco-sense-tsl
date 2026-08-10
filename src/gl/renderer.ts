@@ -1,7 +1,9 @@
-import { NoToneMapping, SRGBColorSpace, WebGPURenderer } from 'three/webgpu'
+import { mrt, normalView, output, pass } from 'three/tsl'
+import { NoToneMapping, RenderPipeline, SRGBColorSpace, WebGPURenderer } from 'three/webgpu'
 import type { Camera, Scene } from 'three/webgpu'
 
 import { Disposer } from '@/gl/dispose'
+import type { PostEffect } from '@/gl/post/post-effect'
 import { PRIORITY, type Ticker } from '@/gl/ticker'
 
 export type RendererOptions = {
@@ -15,6 +17,12 @@ export type RendererOptions = {
    * never touches projection.
    */
   onResize?: (width: number, height: number) => void
+  /**
+   * Optional screen-space effect. With none, the scene renders straight to the
+   * canvas; with one, it renders through a `RenderPipeline` whose output node
+   * the effect builds.
+   */
+  post?: PostEffect
 }
 
 /**
@@ -31,7 +39,7 @@ export class Renderer {
   private disposed = false
   private ready = false
 
-  constructor({ canvas, scene, camera, ticker, onResize }: RendererOptions) {
+  constructor({ canvas, scene, camera, ticker, onResize, post }: RendererOptions) {
     this.canvas = canvas
     this.onResize = onResize
 
@@ -59,9 +67,10 @@ export class Renderer {
         const isWebGPU =
           (renderer.backend as { isWebGPUBackend?: boolean }).isWebGPUBackend === true
         console.info(`[gl] backend: ${isWebGPU ? 'webgpu' : 'webgl2'}`)
-        const removeRender = ticker.add(() => {
-          renderer.render(scene, camera)
-        }, PRIORITY.RENDER)
+        const draw = post
+          ? this.buildPipeline(post, scene, camera)
+          : () => renderer.render(scene, camera)
+        const removeRender = ticker.add(draw, PRIORITY.RENDER)
         this.disposer.add(removeRender)
       })
       .catch((error: unknown) => {
@@ -74,6 +83,24 @@ export class Renderer {
     this.disposer.add(() => {
       void init.finally(() => renderer.dispose())
     })
+  }
+
+  /**
+   * Wires the scene pass, its MRT, and the effect's graph into a
+   * `RenderPipeline`, and returns the per-frame draw call.
+   */
+  private buildPipeline(post: PostEffect, scene: Scene, camera: Camera): () => void {
+    const scenePass = pass(scene, camera)
+    // The extra buffer the contour pass reads. Asking for it here is what
+    // saves the second scene render the original sketch needed.
+    scenePass.setMRT(mrt({ output, normal: normalView }))
+
+    const pipeline = new RenderPipeline(this.renderer, post.build(scenePass))
+    this.disposer.add(() => {
+      post.dispose?.()
+      pipeline.dispose()
+    })
+    return () => pipeline.render()
   }
 
   private setSize(): void {
