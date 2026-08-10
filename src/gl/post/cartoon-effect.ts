@@ -46,6 +46,10 @@ const INK_COLOR = new Color(64 / 255, 43 / 255, 43 / 255)
 // How far the ink pulls each screened pixel. The original hardcodes 0.5.
 const INK_STRENGTH = 0.5
 
+// The sketch's `luma()` is Rec. 601. TSL's `luminance()` defaults to Rec. 709,
+// which reads greens brighter and would shift every screening threshold.
+const REC_601 = vec3(0.299, 0.587, 0.114)
+
 export class CartoonEffect implements PostEffect {
   /** How far apart the Sobel taps sit — a wider contour line. */
   private readonly contour = uniform(4)
@@ -100,7 +104,7 @@ export class CartoonEffect implements PostEffect {
       contourMask.mul(-1).add(0.5)
     )
 
-    const tone = luminance(inked)
+    const tone = luminance(inked, REC_601)
     const screenUvScaled = screenUV.mul(this.scale)
 
     // Darkest tones: hatching at 45 degrees.

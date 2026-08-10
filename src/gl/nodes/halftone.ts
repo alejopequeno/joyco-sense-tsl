@@ -1,4 +1,18 @@
-import { cos, dFdx, dFdy, float, Fn, fract, length, mat2, sin, sqrt, step, vec2 } from 'three/tsl'
+import {
+  cos,
+  dFdx,
+  dFdy,
+  float,
+  Fn,
+  fract,
+  length,
+  mat2,
+  max,
+  sin,
+  sqrt,
+  step,
+  vec2,
+} from 'three/tsl'
 import type { Node } from 'three/webgpu'
 
 /**
@@ -45,6 +59,12 @@ export const lines = Fn(
  *
  * `l` above `threshold` grows the dot radius, so the brightest areas blow out
  * to solid white.
+ *
+ * The original only ever calls this inside `if (l > light)`, so it takes the
+ * square root of `l - threshold` unguarded. Evaluating it unconditionally makes
+ * that difference negative for dark pixels, and `sqrt` of a negative is NaN —
+ * which survives being multiplied by a zero mask and poisons the pixel. Hence
+ * the `max`.
  */
 export const halftoneDots = Fn(
   ([l, uv, threshold, scale, thickness]: [
@@ -58,6 +78,6 @@ export const halftoneDots = Fn(
     const rotation = mat2(0.707, 0.707, -0.707, 0.707)
     const grid = rotation.mul(uv).mul(scale.mul(frequency))
     const cell = fract(grid).mul(2).sub(1).mul(thickness)
-    return step(0, sqrt(l.sub(threshold)).sub(length(cell)))
+    return step(0, sqrt(max(l.sub(threshold), 0)).sub(length(cell)))
   }
 )
