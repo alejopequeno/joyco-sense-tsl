@@ -15,7 +15,7 @@ import type { Node } from 'three/webgpu'
 
 import { blendDarken, blendScreen } from '@/gl/nodes/blend'
 import { halftoneDots, lines, rotateUv } from '@/gl/nodes/halftone'
-import { paper } from '@/gl/nodes/paper'
+import { printGrain } from '@/gl/nodes/paper'
 import { sobel } from '@/gl/nodes/sobel'
 import { chromaticAberration } from '@/gl/post/chromatic-aberration'
 import type { PostEffect, ScenePass } from '@/gl/post/post-effect'
@@ -34,9 +34,9 @@ import type { PostEffect, ScenePass } from '@/gl/post/post-effect'
  * alone", which a `mix` against a `step` expresses without divergence.
  */
 
-// Paper grain is sized against a reference height so it does not swim when the
+// Grain is sized against a reference height so it does not swim when the
 // window resizes.
-const PAPER_REFERENCE_HEIGHT = 1000
+const GRAIN_REFERENCE_HEIGHT = 1000
 
 // The sketch's ink is `new Color(64, 43, 43)` divided by 255 in the shader —
 // three would read those as linear values well past white, hence the manual
@@ -139,11 +139,12 @@ export class CartoonEffect implements PostEffect {
       step(this.light, tone)
     )
 
-    const sheet = paper(screenUV.mul(screenSize.y.div(PAPER_REFERENCE_HEIGHT)))
+    // Grain as a plain multiplier. The sketch blends a beige sheet in with
+    // `blendDarken`, which over saturated colour reads as newsprint rather than
+    // as film.
+    const grain = printGrain(screenUV.mul(screenSize.y.div(GRAIN_REFERENCE_HEIGHT)))
 
-    // Paper multiplies in as the darker of the two, so a light background
-    // picks up the grain while the ink stays ink.
-    return vec4(blendDarken(sheet, screened, 1), 1)
+    return vec4(screened.mul(grain), 1)
   }
 
   /**

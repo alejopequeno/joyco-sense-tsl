@@ -6,11 +6,12 @@ import type { Node } from 'three/webgpu'
  * (spite/sketch, MIT — `js/params.js` loads a Parchment bitmap). Generating it
  * keeps the project free of image assets, and the grain is resolution
  * independent for free.
+ *
+ * Returned as a brightness multiplier rather than the sketch's beige sheet
+ * colour: the film look this project is chasing is saturated and dark, and
+ * blending a warm off-white over it under `blendDarken` desaturated everything
+ * toward newsprint. The tooth survives, the paper tint does not.
  */
-
-// Warm off-white, and the tone the fibres darken toward.
-const PAPER_LIGHT = vec3(0.94, 0.92, 0.86)
-const PAPER_DARK = vec3(0.82, 0.78, 0.7)
 
 // Fine tooth of the sheet.
 const GRAIN_SCALE = 220
@@ -20,11 +21,16 @@ const FIBRE_SCALE = 40
 const FIBRE_STRETCH = 12
 const FIBRE_WEIGHT = 0.45
 
+// How far the grain is allowed to swing the image. Small — it should read as
+// texture on a surface, never as noise laid over one.
+const GRAIN_FLOOR = 0.88
+const GRAIN_CEILING = 1.04
+
 /**
  * @param uv screen-space coordinates, already scaled by the caller so the grain
  *           holds a constant physical size regardless of viewport.
  */
-export const paper = Fn(([uv]: [Node<'vec2'>]) => {
+export const printGrain = Fn(([uv]: [Node<'vec2'>]) => {
   const grain = mx_fractal_noise_float(
     vec3(uv.mul(GRAIN_SCALE), 0),
     GRAIN_OCTAVES,
@@ -45,5 +51,5 @@ export const paper = Fn(([uv]: [Node<'vec2'>]) => {
     .mul(0.5)
     .add(0.5)
 
-  return mix(PAPER_DARK, PAPER_LIGHT, mix(grain, fibres, FIBRE_WEIGHT))
+  return mix(GRAIN_FLOOR, GRAIN_CEILING, mix(grain, fibres, FIBRE_WEIGHT))
 })
