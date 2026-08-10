@@ -1,5 +1,6 @@
 import { AmbientLight, Color, DirectionalLight, PerspectiveCamera, Scene } from 'three/webgpu'
 
+import { DragRotate } from '@/gl/logo/drag-rotate'
 import { createLogoMesh } from '@/gl/logo/logo-mesh'
 import { Renderer } from '@/gl/renderer'
 import { Ticker } from '@/gl/ticker'
@@ -25,6 +26,8 @@ const logo = createLogoMesh()
 scene.add(logo)
 
 const ticker = new Ticker()
+
+new DragRotate(logo, canvas, ticker)
 
 new Renderer({
   canvas,
