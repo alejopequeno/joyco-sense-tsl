@@ -1,6 +1,7 @@
-import { ExtrudeGeometry, Mesh, MeshStandardNodeMaterial } from 'three/webgpu'
+import { ExtrudeGeometry, Mesh } from 'three/webgpu'
 
 import { createLogoShape } from '@/gl/logo/logo-shape'
+import { createSpiderVerseMaterial } from '@/gl/materials/spider-verse-material'
 
 // All fractions of the logo's height, which `createLogoShape` normalizes to 1.
 export const LOGO_DEPTH = 0.2
@@ -28,12 +29,5 @@ export function createLogoGeometry(): ExtrudeGeometry {
 }
 
 export function createLogoMesh(): Mesh {
-  // Provisional: a plain lit material, just enough to read the volume and the
-  // bevel. The TSL node graph replaces this next.
-  const material = new MeshStandardNodeMaterial({
-    color: 0xf2f2f2,
-    roughness: 0.35,
-    metalness: 0.1,
-  })
-  return new Mesh(createLogoGeometry(), material)
+  return new Mesh(createLogoGeometry(), createSpiderVerseMaterial())
 }
