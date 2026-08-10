@@ -18,12 +18,13 @@ scene.background = new Color(0xe8e4da)
 const camera = new PerspectiveCamera(35, 1, 0.1, 100)
 camera.position.set(0, 0, 3.2)
 
-// Key light off to the upper right so the bevel catches a highlight along the
-// top and right edges; ambient lifts the shadow side into the mid tones the
-// hatching needs to bite on.
-const keyLight = new DirectionalLight(0xffffff, 2.5)
+// Deliberately dim. The contour blend extrapolates flat areas to 1.5x and
+// `boost` adds another 1.1x, so anything lit to a normal exposure clips to
+// white and the screening layers have no tone left to bite on. Aim for surfaces
+// around a third of full brightness before post.
+const keyLight = new DirectionalLight(0xffffff, 1.1)
 keyLight.position.set(2, 3, 4)
-const fillLight = new AmbientLight(0xffffff, 0.9)
+const fillLight = new AmbientLight(0xffffff, 0.3)
 scene.add(keyLight, fillLight)
 
 const logo = createLogoMesh()

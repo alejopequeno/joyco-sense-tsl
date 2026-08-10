@@ -13,9 +13,11 @@ import { colorSpline } from '@/gl/nodes/color-spline'
  * ramp through `colorNode` — no string surgery, no compile hook.
  */
 
-// Noise frequency over world space. Low, so the blotches read as large patches
-// of colour rather than speckle.
-const NOISE_SCALE = 0.05
+// Noise frequency over world space, tuned so a few blotches span the object.
+// The sketch uses 0.05 because its scene is tens of units across; the logo is
+// normalized to 1 unit tall, where that frequency is flat enough to give the
+// whole mesh a single colour.
+const NOISE_SCALE = 2.5
 // The original smoothsteps with a half-width of 0.5 over a signed noise
 // remapped to 0..1, which is a near pass-through — it only softens the tails.
 const CONTRAST_EDGE = 0.5
