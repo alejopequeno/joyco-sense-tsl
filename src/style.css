@@ -1,0 +1,17 @@
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: #101012;
+  overflow: hidden;
+}
+
+#gl {
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* Without this the browser claims horizontal drags for scroll and
+     back-navigation, killing the pointer stream mid-gesture with a
+     `pointercancel`. */
+  touch-action: none;
+}
