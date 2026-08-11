@@ -49,6 +49,11 @@ const INK_STRENGTH = 0.5
 // which reads greens brighter and would shift every screening threshold.
 const REC_601 = vec3(0.299, 0.587, 0.114)
 
+// The grade's saturation pivot. Rec. 709 to match the sRGB primaries the
+// frame is headed for — distinct from the screening layers' REC_601 above,
+// which mimics the sketch.
+const REC_709 = vec3(0.2126, 0.7152, 0.0722)
+
 // The sketch blends a Parchment scan over the frame with blendDarken: the
 // brightest areas cap to warm paper instead of clipping to white. This is
 // that sheet's default colour — the grain modulates it. A uniform (not a
@@ -84,6 +89,20 @@ export class CartoonEffect implements PostEffect {
   /** The paper sheet colour the frame darkens toward — see `PAPER_SHEET_DEFAULT`. */
   private readonly paperSheet = uniform(PAPER_SHEET_DEFAULT)
 
+  // Colour grade, applied last — a trimmed port of jam's ColorGradePass
+  // (itself from bzrp's ColorTunePass). All defaults are identity, so the
+  // grade changes nothing until a knob moves. Note this graph runs in linear
+  // space (the renderer encodes to sRGB after), so the 0.5 contrast pivot is
+  // linear mid-grey, a touch darker perceptually than jam's display-space one.
+  /** Mid-grey-pivot contrast: `(c - 0.5) * k + 0.5`. 1 is identity. */
+  private readonly gradeContrast = uniform(1)
+  /** Exponent on the result: >0 crushes shadows, <0 lifts them. 0 is identity. */
+  private readonly gradeBlackBoost = uniform(0)
+  /** Luma↔colour mix: 0 greyscale, 1 identity, >1 oversaturates. */
+  private readonly gradeSaturation = uniform(1)
+  /** Final uniform gain. 1 is identity. */
+  private readonly gradeBrightness = uniform(1)
+
   /** Drives the overlay and the aberration boost. Clamped to 0..1. */
   setSenseIntensity(value: number): void {
     this.senseIntensity.value = Math.min(Math.max(value, 0), 1)
@@ -106,6 +125,10 @@ export class CartoonEffect implements PostEffect {
       max: 400,
     })
     folder.addBinding(this.paperSheet, 'value', { label: 'paper sheet', color: { type: 'float' } })
+    folder.addBinding(this.gradeContrast, 'value', { label: 'grade contrast', min: 0, max: 2, step: 0.01 })
+    folder.addBinding(this.gradeBlackBoost, 'value', { label: 'grade blacks', min: -0.5, max: 2, step: 0.01 })
+    folder.addBinding(this.gradeSaturation, 'value', { label: 'grade saturation', min: 0, max: 2, step: 0.01 })
+    folder.addBinding(this.gradeBrightness, 'value', { label: 'grade brightness', min: 0, max: 2, step: 0.01 })
   }
 
   build(scenePass: ScenePass): Node<'vec4'> {
@@ -115,7 +138,20 @@ export class CartoonEffect implements PostEffect {
     // the sketch's second FBO, minus the manual plumbing.
     const composite = rtt(this.buildComposite(scenePass))
     const delta = this.aberration.add(this.senseIntensity.mul(this.senseAberrationBoost))
-    return chromaticAberration(composite, delta)
+    return this.grade(chromaticAberration(composite, delta))
+  }
+
+  /**
+   * Contrast → black boost → saturation → brightness, in that order. The
+   * `max(0)` before `pow` is load-bearing: contrast > 1 can push values
+   * negative, and `pow` of a negative is NaN.
+   */
+  private grade(input: Node<'vec4'>): Node<'vec4'> {
+    const pivoted = input.rgb.sub(0.5).mul(this.gradeContrast).add(0.5).max(0)
+    const shadowed = pivoted.pow(vec3(this.gradeBlackBoost.add(1)))
+    const luma = luminance(shadowed, REC_709)
+    const out = mix(vec3(luma), shadowed, this.gradeSaturation).mul(this.gradeBrightness)
+    return vec4(out, 1)
   }
 
   private buildComposite(scenePass: ScenePass): Node<'vec4'> {
