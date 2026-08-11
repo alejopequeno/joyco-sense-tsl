@@ -32,6 +32,11 @@ const PATCH_OFFSET = 31.7
 const DUOTONE_EDGE_LOW = 0.38
 const DUOTONE_EDGE_HIGH = 0.62
 
+// The film palette at print strength: pulled toward the paper so the field
+// reads salmon / dusty blue like the sketch, not poster-saturated.
+const BLUE_SOFTEN = 0.35
+const RED_SOFTEN = 0.45
+
 // Cream patches: where the noise crests, the page shows through. The post
 // chain's halftone threshold sits at 0.62 luma, so a 0.85 lift is comfortably
 // inside dot territory.
@@ -52,8 +57,8 @@ export function createBackdrop(): Mesh {
 
   const duotoneNoise = mx_noise_float(vec3(p.mul(DUOTONE_SCALE), 0)).mul(0.5).add(0.5)
   const duotone = mix(
-    SPIDER_BLUE,
-    SPIDER_RED,
+    mix(SPIDER_BLUE, CREAM, BLUE_SOFTEN),
+    mix(SPIDER_RED, CREAM, RED_SOFTEN),
     smoothstep(DUOTONE_EDGE_LOW, DUOTONE_EDGE_HIGH, duotoneNoise)
   )
 

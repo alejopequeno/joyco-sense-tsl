@@ -25,7 +25,7 @@ const CONTRAST_EDGE = 0.5
 export function createSpiderVerseMaterial(): MeshStandardNodeMaterial {
   const material = new MeshStandardNodeMaterial({
     color: 0x808080,
-    roughness: 0.2,
+    roughness: 0.4,
     metalness: 0.1,
   })
 

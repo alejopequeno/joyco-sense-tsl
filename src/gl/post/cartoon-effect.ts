@@ -1,4 +1,5 @@
 import {
+  float,
   luminance,
   mix,
   rtt,
@@ -45,6 +46,11 @@ const INK_STRENGTH = 0.5
 // The sketch's `luma()` is Rec. 601. TSL's `luminance()` defaults to Rec. 709,
 // which reads greens brighter and would shift every screening threshold.
 const REC_601 = vec3(0.299, 0.587, 0.114)
+
+// The sketch blends a Parchment scan over the frame with blendDarken: the
+// brightest areas cap to warm paper instead of clipping to white. This is
+// that sheet, procedurally — the grain modulates it.
+const PAPER_SHEET = vec3(0.93, 0.88, 0.78)
 
 export class CartoonEffect implements PostEffect {
   /** How far apart the Sobel taps sit — a wider contour line. */
@@ -151,8 +157,10 @@ export class CartoonEffect implements PostEffect {
     // as film.
     const grain = printGrain(screenUV.mul(screenSize.y.div(GRAIN_REFERENCE_HEIGHT)))
 
+    const papered = blendDarken(screened, PAPER_SHEET.mul(grain), float(1))
+
     return vec4(
-      spiderSense(screened.mul(grain), scenePass.getTextureNode('mask'), this.senseIntensity),
+      spiderSense(papered, scenePass.getTextureNode('mask'), this.senseIntensity),
       1
     )
   }
