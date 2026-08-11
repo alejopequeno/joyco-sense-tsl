@@ -8,6 +8,9 @@ export const MAX_PITCH = (80 * Math.PI) / 180
 
 const RADIANS_PER_PIXEL = 0.005
 const DAMPING = 3.5
+const IDLE_YAW_SPEED = 0.15
+/** Below this residual speed the idle spin takes back over. */
+const IDLE_RESUME_VELOCITY = 0.05
 
 /**
  * The presentation pose a tap snaps the logo to, tuned by eye against the
@@ -53,10 +56,11 @@ export function decayVelocity(velocity: number, dt: number, damping: number = DA
 }
 
 /**
- * Rotates an object by pointer drag, with inertia on release. The logo rests
- * still and moves only when touched (drag or tap-to-pose). Yaw and pitch are
- * tracked as separate scalars rather than as a quaternion trackball: more
- * predictable, and no accumulated roll.
+ * Rotates an object by pointer drag, with inertia on release and a slow idle spin
+ * when it comes to rest. The logo rests still and moves only when touched (drag or
+ * tap-to-pose). The tap pose holds briefly, then the idle spin resumes from it.
+ * Yaw and pitch are tracked as separate scalars rather than as a quaternion
+ * trackball: more predictable, and no accumulated roll.
  */
 export class DragRotate {
   private readonly target: Object3D
@@ -173,7 +177,8 @@ export class DragRotate {
     } else {
       this.yawVelocity = decayVelocity(this.yawVelocity, dt)
       this.pitchVelocity = decayVelocity(this.pitchVelocity, dt)
-      this.yaw += this.yawVelocity * dt
+      const idleYaw = Math.abs(this.yawVelocity) < IDLE_RESUME_VELOCITY ? IDLE_YAW_SPEED : 0
+      this.yaw += (this.yawVelocity + idleYaw) * dt
       this.pitch = clampPitch(this.pitch + this.pitchVelocity * dt)
     }
 

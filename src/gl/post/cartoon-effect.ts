@@ -48,9 +48,9 @@ const REC_601 = vec3(0.299, 0.587, 0.114)
 
 export class CartoonEffect implements PostEffect {
   /** How far apart the Sobel taps sit — a wider contour line. */
-  private readonly contour = uniform(4)
+  private readonly contour = uniform(2.5)
   /** Edge falloff, and stroke width for the screening layers. */
-  private readonly thickness = uniform(1)
+  private readonly thickness = uniform(0.8)
   /** Multiplies the scene colour before the contour is burned in. */
   private readonly boost = uniform(1.1)
   /** Screening frequency. Higher packs the lines and dots tighter. */
