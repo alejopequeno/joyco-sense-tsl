@@ -12,14 +12,14 @@ import type { Node } from 'three/webgpu'
  * by its own weight. Same curve, no indirection.
  */
 
-// The Spider-Verse palette: deep violet, near-black wine, salmon, pale
-// lavender, dusty blue.
+// The classic suit ramp: near-black navy, suit blue, dark red, suit red,
+// cold pale highlight — #03071E, #2B3784, #B11313, #DF1F2D, #D7DEFF.
 const STOPS = [
-  vec3(64 / 255, 55 / 255, 124 / 255),
-  vec3(34 / 255, 17 / 255, 27 / 255),
-  vec3(212 / 255, 109 / 255, 97 / 255),
-  vec3(217 / 255, 211 / 255, 229 / 255),
-  vec3(112 / 255, 127 / 255, 183 / 255),
+  vec3(3 / 255, 7 / 255, 30 / 255),
+  vec3(43 / 255, 55 / 255, 132 / 255),
+  vec3(177 / 255, 19 / 255, 19 / 255),
+  vec3(223 / 255, 31 / 255, 45 / 255),
+  vec3(215 / 255, 222 / 255, 255 / 255),
 ] as const
 
 const SEGMENTS = STOPS.length

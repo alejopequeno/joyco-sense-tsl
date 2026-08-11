@@ -33,9 +33,9 @@ const DUOTONE_EDGE_LOW = 0.38
 const DUOTONE_EDGE_HIGH = 0.62
 
 // The film palette at print strength: pulled toward the paper so the field
-// reads salmon / dusty blue like the sketch, not poster-saturated.
-const BLUE_SOFTEN = 0.35
-const RED_SOFTEN = 0.45
+// reads as suit red/blue over paper, not poster-saturated.
+const BLUE_SOFTEN = 0.2
+const RED_SOFTEN = 0.3
 
 // Cream patches: where the noise crests, the page shows through. The post
 // chain's halftone threshold sits at 0.62 luma, so a 0.85 lift is comfortably
