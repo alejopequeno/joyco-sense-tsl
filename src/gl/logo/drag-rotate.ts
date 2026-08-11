@@ -31,7 +31,7 @@ export function clampPitch(pitch: number): number {
   return Math.min(Math.max(pitch, -MAX_PITCH), MAX_PITCH)
 }
 
-/** Signed shortest way from one angle to another, in (-π, π]. */
+/** Signed shortest way from one angle to another, in [-π, π). */
 export function shortestAngleDelta(from: number, to: number): number {
   const raw = (((to - from + Math.PI) % TAU_RADIANS) + TAU_RADIANS) % TAU_RADIANS
   return raw - Math.PI
@@ -109,6 +109,8 @@ export class DragRotate {
       this.pitchVelocity = 0
       this.posing = false
       this.travel = 0
+      this.pendingYaw = 0
+      this.pendingPitch = 0
       // Keeps the gesture alive when the pointer leaves the canvas.
       element.setPointerCapture(event.pointerId)
     }
