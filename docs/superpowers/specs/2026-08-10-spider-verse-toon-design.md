@@ -186,3 +186,20 @@ reference screenshot: roughness 0.40, paper Parchment, contour 4, thresholds
     areas cap to warm paper carrying the print grain, instead of a barely
     visible brightness multiplier.
   - Backdrop duotone desaturated toward cream (salmon / dusty blue).
+
+## Iteration 6 (2026-08-11): canonical Spider-Man colours
+
+The colours still read as the sketch's palette, not Spider-Man's. Researched
+canonical values: classic suit red `#DF1F2D` / dark red `#B11313` / suit blue
+`#2B3784` (schemecolor), film accents magenta `#FF1973` and near-black navy
+`#03071E` (Spider-Verse palettes).
+
+- The material's `colorSpline` stops become the suit ramp: `#03071E` →
+  `#2B3784` → `#B11313` → `#DF1F2D` → `#D7DEFF` (the cold highlight from the
+  user's own `look.ts`).
+- Shared palette: `SPIDER_RED` = `#DF1F2D`, `SPIDER_BLUE` = `#2B3784`,
+  `SPIDER_MAGENTA` = `#FF1973`. `SENSE_RED`, `CREAM`, `INK_COLOR` unchanged.
+- Backdrop softening eased (0.35/0.45 → 0.2/0.3) so the field reads
+  red/blue again over the paper.
+- Values stay raw sRGB-as-linear fractions, matching the existing palette
+  convention.
