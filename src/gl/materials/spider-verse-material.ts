@@ -6,7 +6,6 @@ import {
   positionWorld,
   smoothstep,
   step,
-  uniform,
   vec3,
 } from 'three/tsl'
 import { MeshBasicNodeMaterial } from 'three/webgpu'
@@ -53,8 +52,7 @@ const FRESNEL_STRENGTH = 0.6
 export function createSpiderVerseMaterial(): MeshBasicNodeMaterial {
   const material = new MeshBasicNodeMaterial()
 
-  const noiseScale = uniform(NOISE_SCALE)
-  const noise = mx_noise_float(positionWorld.mul(noiseScale)).mul(0.5).add(0.5)
+  const noise = mx_noise_float(positionWorld.mul(NOISE_SCALE)).mul(0.5).add(0.5)
   const ramp = smoothstep(0.5 - CONTRAST_EDGE, 0.5 + CONTRAST_EDGE, noise)
   const albedo = colorSpline(ramp)
 
@@ -73,6 +71,7 @@ export function createSpiderVerseMaterial(): MeshBasicNodeMaterial {
   // Flat clipped specular off the key.
   const halfway = KEY_DIR.add(viewDir).normalize()
   const specular = step(SPECULAR_CUT, n.dot(halfway).max(0))
+  // mix() called positionally on purpose: the .mix() chain method takes the receiver as the blend factor, not the base colour.
   const withSpecular = mix(withRim, CREAM, specular.mul(SPECULAR_STRENGTH))
 
   // Magenta fresnel edge — the seam colour of the palette.

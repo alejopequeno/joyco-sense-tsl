@@ -15,16 +15,17 @@ describe('SPHERE_ORBITS', () => {
 })
 
 describe('spherePosition', () => {
-  const orbit = SPHERE_ORBITS[0]
-
   it('is deterministic', () => {
+    const orbit = SPHERE_ORBITS[0]
     expect(spherePosition(orbit, 2.5)).toEqual(spherePosition(orbit, 2.5))
   })
 
   it('moves over time', () => {
-    const a = spherePosition(orbit, 0)
-    const b = spherePosition(orbit, 1)
-    expect(a).not.toEqual(b)
+    for (const orbit of SPHERE_ORBITS) {
+      const a = spherePosition(orbit, 0)
+      const b = spherePosition(orbit, 1)
+      expect(a).not.toEqual(b)
+    }
   })
 
   it('stays within the orbit radius plus bob amplitude', () => {
