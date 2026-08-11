@@ -152,9 +152,6 @@ export class CartoonEffect implements PostEffect {
       step(this.light, tone)
     )
 
-    // Grain as a plain multiplier. The sketch blends a beige sheet in with
-    // `blendDarken`, which over saturated colour reads as newsprint rather than
-    // as film.
     const grain = printGrain(screenUV.mul(screenSize.y.div(GRAIN_REFERENCE_HEIGHT)))
 
     const papered = blendDarken(screened, PAPER_SHEET.mul(grain), float(1))
