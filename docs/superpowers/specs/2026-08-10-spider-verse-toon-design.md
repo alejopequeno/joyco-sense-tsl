@@ -146,3 +146,20 @@ film still of the sense burst) refined the overlay language and the motion:
 - The comic caption box idea was considered and dropped.
 - `post-hope` (posterization) noted as a possible future direction, out of
   scope here.
+
+## Iteration 4 (2026-08-11): back to smooth shading, idle spin returns
+
+Live testing exposed the banded toon material's failure mode on this
+geometry: the logo's large flat faces share one normal, so the cel bands and
+the clipped specular flip the entire face dark/light/white in a single frame
+as it rotates. The reference sketch never bands — its comic feel comes from
+the post screening over smooth standard lighting.
+
+- **Material reverts to the faithful port**: `MeshStandardNodeMaterial`
+  (roughness 0.2, metalness 0.1) with the noise-driven `colorSpline` albedo,
+  as first shipped — smooth transitions, no bands, no clipped specular. The
+  red key / blue rim / dim ambient scene lights return with it.
+- **Idle spin returns** (reverting Iteration 3's "still logo"): slow yaw
+  when at rest, exactly the original behavior.
+- **Outlines softened**: the Sobel contour reads too heavy against the
+  sketch — contour tap distance 4 → 2.5, thickness 1 → 0.8.
