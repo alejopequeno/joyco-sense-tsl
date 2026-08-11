@@ -75,10 +75,12 @@ export const spiderSense = Fn(
         SQUIGGLE_AMPLITUDE
       )
       const line = smoothstep(
-        SQUIGGLE_HALF_WIDTH + SQUIGGLE_FEATHER,
         SQUIGGLE_HALF_WIDTH,
+        SQUIGGLE_HALF_WIDTH + SQUIGGLE_FEATHER,
         abs(screenUV.y.sub(row).sub(wave))
-      ).mul(window)
+      )
+        .oneMinus()
+        .mul(window)
       if (index % 2 === 0) squiggleRed = squiggleRed.add(line)
       else squiggleBlue = squiggleBlue.add(line)
     }
