@@ -1,10 +1,8 @@
-// src/gl/post/spider-sense.ts
 import {
-  abs,
   atan,
+  clamp,
   float,
-  fract,
-  hash,
+  length,
   mix,
   screenSize,
   screenUV,
@@ -16,188 +14,190 @@ import {
 } from 'three/tsl'
 import type { Node, TextureNode } from 'three/webgpu'
 
+import { MILES_LOOK } from '@/gl/look'
+import { dilateDisc } from '@/gl/nodes/morphology'
 import { CREAM, SENSE_RED, SPIDER_BLUE } from '@/gl/palette'
+import { GESTURE_CAPSULES } from '@/gl/post/spider-sense-geometry'
 
 /**
- * The spider-sense overlay, drawn the way the comics draw it: wavy strokes
- * radiating outward around the subject — Ditko's squiggles — a cream contour
- * tracing the silhouette at an offset, and thin red needles converging on
- * screen centre, as in the film's sense burst. One intensity value drives
- * everything; at 0 the overlay is a no-op. Quantizing time into flicker
- * steps re-randomizes phases and dropouts a few times a second, which reads
- * as hand-drawn frames instead of smooth motion.
+ * Drawn spider-sense language composited over the already-processed scene:
+ * sparse logo-following echoes and short continuously travelling arcs.
+ * Geometry never re-randomizes over time; animation changes phase and opacity
+ * smoothly like successive drawn frames.
  */
 
-/** Re-randomizations per second. Comic-book shutter, not smooth motion. */
-const FLICKER_HZ = 12
-const TAU = 6.28318530718
+type AccentColor = 'cream' | 'red' | 'blue'
 
-/**
- * The squiggle ring. Angles walk the full circle unevenly, radii and lengths
- * vary, colours follow the references: mostly cream with a red and blue
- * accent pair. Units are aspect-corrected screen space, frame 1 unit tall.
- */
-type SquiggleStroke = {
-  /** Position angle on the ring, radians. */
+type LogoArc = {
   angle: number
-  /** Ring radius from screen centre. */
   radius: number
-  /** Stroke length along the radial axis. */
   length: number
-  /** Wave cycles along the stroke. */
   frequency: number
-  /** Static phase, so identical frequencies still differ. */
   phase: number
-  color: 'cream' | 'red' | 'blue'
+  speed: number
+  color: AccentColor
 }
 
-const SQUIGGLES: readonly SquiggleStroke[] = [
-  { angle: 0.4, radius: 0.34, length: 0.16, frequency: 55, phase: 0.0, color: 'cream' },
-  { angle: 1.1, radius: 0.3, length: 0.13, frequency: 65, phase: 1.7, color: 'red' },
-  { angle: 1.9, radius: 0.33, length: 0.18, frequency: 50, phase: 3.1, color: 'cream' },
-  { angle: 2.6, radius: 0.28, length: 0.12, frequency: 70, phase: 4.2, color: 'blue' },
-  { angle: 3.4, radius: 0.35, length: 0.17, frequency: 55, phase: 0.9, color: 'cream' },
-  { angle: 4.1, radius: 0.3, length: 0.14, frequency: 60, phase: 2.3, color: 'cream' },
-  { angle: 4.9, radius: 0.32, length: 0.15, frequency: 58, phase: 5.0, color: 'red' },
-  { angle: 5.7, radius: 0.29, length: 0.13, frequency: 66, phase: 3.8, color: 'cream' },
+type WaveKeepOutDilations<T> = {
+  inner: T
+  outer: T
+}
+
+const LOGO_ARCS: readonly LogoArc[] = [
+  { angle: 0.35, radius: 0.34, length: 0.17, frequency: 52, phase: 0.0, speed: 3.1, color: 'cream' },
+  { angle: 1.05, radius: 0.31, length: 0.14, frequency: 61, phase: 1.7, speed: -2.5, color: 'red' },
+  { angle: 1.85, radius: 0.34, length: 0.18, frequency: 48, phase: 3.1, speed: 2.8, color: 'cream' },
+  { angle: 2.55, radius: 0.3, length: 0.14, frequency: 64, phase: 4.2, speed: -3.0, color: 'blue' },
+  { angle: 3.3, radius: 0.35, length: 0.18, frequency: 53, phase: 0.9, speed: 2.4, color: 'cream' },
+  { angle: 4.05, radius: 0.31, length: 0.15, frequency: 58, phase: 2.3, speed: -2.7, color: 'cream' },
+  { angle: 4.85, radius: 0.33, length: 0.16, frequency: 55, phase: 5.0, speed: 3.0, color: 'red' },
+  { angle: 5.65, radius: 0.3, length: 0.14, frequency: 62, phase: 3.8, speed: -2.3, color: 'cream' },
 ]
 
-/** Wave amplitude across the stroke. */
-const WAVE_AMPLITUDE = 0.012
-/** Stroke half-width at its centre, before the taper thins the tips. */
-const STROKE_HALF_WIDTH = 0.006
-/** Anti-alias feather on the stroke edge. */
-const STROKE_FEATHER = 0.004
-/** Per-flicker-step chance a stroke sits out: hash above this keeps it. */
-const STROKE_DROPOUT = 0.15
+const ARC_AMPLITUDE = 0.012
+const ARC_HALF_WIDTH = 0.006
+const ARC_FEATHER = 0.003
 
-/** Needle rays around screen centre. */
-const NEEDLE_RAYS = 48
-/** Longest needle reach in from the top/bottom edge, fraction of height. */
-const NEEDLE_REACH = 0.3
-/** Fraction of rays silent per flicker step: hash above this fires. */
-const NEEDLE_DROPOUT = 0.55
-/** Bottom edge needles are dimmer/shorter than the top's. */
-const BOTTOM_EDGE_WEIGHT = 0.35
-/** Decorrelates the per-ray and per-stroke hashes between flicker steps. */
-const FLICKER_SALT = 77.7
-
-/** Contour: angular dilation taps and offsets, in physical pixels. */
-const CONTOUR_TAPS = 12
-const CONTOUR_OFFSET_PX = 16
-const CONTOUR_WIDTH_PX = 4
-/** Angular wobble that keeps the offset line from reading mechanical. */
-const CONTOUR_WOBBLE_CYCLES = 9
-const CONTOUR_WOBBLE_DEPTH = 0.25
-
-/** Fades all masks in as intensity leaves zero, so decay tails vanish clean. */
 const GATE_LOW = 0.02
 const GATE_HIGH = 0.2
 
-/**
- * Max of the mask over a ring of angular taps — a poor man's dilation. The
- * difference of two radii is a band tracing the silhouette at an offset.
- */
-function dilate(objectMask: TextureNode, radiusPx: number): Node<'float'> {
-  let acc: Node<'float'> = float(0)
-  for (let tap = 0; tap < CONTOUR_TAPS; tap++) {
-    const angle = (tap / CONTOUR_TAPS) * TAU
-    const offset = vec2(Math.cos(angle) * radiusPx, Math.sin(angle) * radiusPx).div(
-      screenSize
-    )
-    acc = acc.max(objectMask.sample(screenUV.add(offset)).r)
-  }
-  return acc
+function addColorMask(
+  color: AccentColor,
+  mask: Node<'float'>,
+  cream: Node<'float'>,
+  red: Node<'float'>,
+  blue: Node<'float'>
+): { cream: Node<'float'>; red: Node<'float'>; blue: Node<'float'> } {
+  if (color === 'cream') return { cream: cream.add(mask), red, blue }
+  if (color === 'red') return { cream, red: red.add(mask), blue }
+  return { cream, red, blue: blue.add(mask) }
 }
 
-export function spiderSense(
-  color: Node<'vec3'>,
-  objectMask: TextureNode,
-  intensity: Node<'float'>
-): Node<'vec3'> {
-  const flicker = time.mul(FLICKER_HZ).floor()
-
-  // Aspect-corrected, centred: the frame is 1 unit tall, origin mid-screen.
-  const p = screenUV.sub(0.5).mul(vec2(screenSize.x.div(screenSize.y), 1))
-  const theta = atan(p.y, p.x)
-
-  // --- Radial squiggles -------------------------------------------------
-  // Local frame per stroke: `along` runs OUTWARD along the radius (the
-  // references show the strokes radiating like small flames), `across` runs
-  // tangentially. A sine bends the centreline, a parabolic taper plus a hard
-  // window sharpens the tips, and a per-step hash redraws the phase.
+function logoArcMasks(p: Node<'vec2'>): {
+  cream: Node<'float'>
+  red: Node<'float'>
+  blue: Node<'float'>
+} {
   let cream: Node<'float'> = float(0)
   let red: Node<'float'> = float(0)
   let blue: Node<'float'> = float(0)
 
-  for (const [index, stroke] of SQUIGGLES.entries()) {
-    const cosA = Math.cos(stroke.angle)
-    const sinA = Math.sin(stroke.angle)
-    const rel = p.sub(vec2(cosA * stroke.radius, sinA * stroke.radius))
-    const along = rel.x.mul(cosA).add(rel.y.mul(sinA))
-    const across = rel.x.mul(-sinA).add(rel.y.mul(cosA))
-
-    const jitter = hash(flicker.add(index * 7.77)).mul(6.28)
-    const wave = sin(along.mul(stroke.frequency).add(stroke.phase).add(jitter)).mul(
-      WAVE_AMPLITUDE
-    )
+  for (const arc of LOGO_ARCS) {
+    const cosA = Math.cos(arc.angle)
+    const sinA = Math.sin(arc.angle)
+    const radius = arc.radius * MILES_LOOK.sense.arcRadiusScale
+    const relative = p.sub(vec2(cosA * radius, sinA * radius))
+    const along = relative.x.mul(cosA).add(relative.y.mul(sinA))
+    const across = relative.x.mul(-sinA).add(relative.y.mul(cosA))
+    const halfLength = arc.length / 2
+    const phase = time.mul(arc.speed).add(arc.phase)
+    const wave = sin(along.mul(arc.frequency).add(phase)).mul(ARC_AMPLITUDE)
     const distance = across.sub(wave).abs()
-
-    // 1 at the stroke centre, 0 at the tips; squared so the tips sharpen.
-    const tip = along.abs().div(stroke.length / 2)
-    const taper = tip.mul(tip).oneMinus().max(0)
-    const width = taper.mul(STROKE_HALF_WIDTH)
-
-    const body = smoothstep(width, width.add(STROKE_FEATHER), distance).oneMinus()
-    // Hard cut at the tips: the taper thins the width, but on its own it
-    // still leaves a hairline along the infinite centreline.
-    const window = step(tip, float(1))
-    const alive = step(STROKE_DROPOUT, hash(flicker.add(index * 13.13 + 3.7)))
-    const mask = body.mul(window).mul(alive)
-
-    if (stroke.color === 'cream') cream = cream.add(mask)
-    else if (stroke.color === 'red') red = red.add(mask)
-    else blue = blue.add(mask)
+    const tip = along.abs().div(halfLength)
+    const taper = float(1).sub(tip.mul(tip)).max(0)
+    const width = taper.mul(ARC_HALF_WIDTH)
+    const body = smoothstep(
+      width,
+      width.add(ARC_FEATHER),
+      distance
+    ).oneMinus()
+    const insideLength = step(tip, float(1))
+    const mask = body.mul(insideLength)
+    ;({ cream, red, blue } = addColorMask(arc.color, mask, cream, red, blue))
   }
 
-  // --- Silhouette contour ----------------------------------------------
-  // Dilate the object mask at two radii; the difference is an annulus band
-  // tracing the logo and spheres at a fixed offset. A low-frequency angular
-  // wobble keeps the line hand-drawn instead of mechanical.
-  const outer = dilate(objectMask, CONTOUR_OFFSET_PX)
-  const inner = dilate(objectMask, CONTOUR_OFFSET_PX - CONTOUR_WIDTH_PX)
-  const band = outer.sub(inner).clamp(0, 1)
-  const wobble = sin(theta.mul(CONTOUR_WOBBLE_CYCLES).add(hash(flicker.mul(3.3)).mul(6.28)))
-    .mul(CONTOUR_WOBBLE_DEPTH)
-    .add(1 - CONTOUR_WOBBLE_DEPTH)
-  const contour = band.mul(wobble)
+  return { cream, red, blue }
+}
 
-  // --- Converging needles -----------------------------------------------
-  // Polar rays around screen centre, clipped to the top/bottom edge zones:
-  // constant angular width means each ray is wide at the frame edge and
-  // sharpens toward the centre — every needle points at the middle.
-  const ray = theta.div(TAU).add(0.5).mul(NEEDLE_RAYS)
-  const rayIndex = ray.floor()
-  const raySeed = hash(rayIndex.add(flicker.mul(FLICKER_SALT)))
-  const active = step(NEEDLE_DROPOUT, hash(rayIndex.add(17.3).add(flicker.mul(FLICKER_SALT))))
+export function selectWaveKeepOutDilation<T>(
+  dilations: WaveKeepOutDilations<T>
+): T {
+  return dilations.inner
+}
 
-  const triangle = abs(fract(ray).mul(2).sub(1)).oneMinus()
-  const thin = triangle.mul(triangle).mul(triangle)
+function localFragmentMask(centred: Node<'vec2'>): Node<'float'> {
+  let mask: Node<'float'> = float(0)
 
-  const fromEdge = abs(screenUV.y.mul(2).sub(1)).oneMinus()
-  const cornerBoost = abs(screenUV.x.mul(2).sub(1)).pow(2).mul(0.55).add(0.45)
-  // Assumes screenUV.y grows upward (top = y > 0.5); flip the mix if the
-  // backend disagrees — verified visually.
-  const topWeight = mix(float(BOTTOM_EDGE_WEIGHT), float(1), step(0.5, screenUV.y))
+  for (const capsule of GESTURE_CAPSULES) {
+    const cosAngle = Math.cos(capsule.angle)
+    const sinAngle = Math.sin(capsule.angle)
+    const relative = centred.sub(vec2(...capsule.center))
+    const along = relative.x.mul(cosAngle).add(relative.y.mul(sinAngle))
+    const across = relative.x.mul(-sinAngle).add(relative.y.mul(cosAngle))
+    const closestAlong = clamp(
+      along,
+      -capsule.halfLength,
+      capsule.halfLength
+    )
+    const distance = length(
+      vec2(along.sub(closestAlong), across)
+    )
+    const capsuleMask = smoothstep(
+      capsule.halfWidth,
+      capsule.halfWidth + capsule.feather,
+      distance
+    ).oneMinus()
+    mask = mask.max(capsuleMask)
+  }
 
-  const reach = raySeed.mul(NEEDLE_REACH).mul(intensity).mul(cornerBoost).mul(topWeight)
-  const needle = step(fromEdge, reach.mul(thin)).mul(active)
+  return mask
+}
 
-  // --- Composite --------------------------------------------------------
+function antialiasMask(
+  mask: Node<'float'>,
+  featherPx: number
+): Node<'float'> {
+  const derivative = mask.fwidth().mul(featherPx).max(0.0001)
+  return smoothstep(
+    float(0.5).sub(derivative),
+    float(0.5).add(derivative),
+    mask
+  )
+}
+
+export function spiderSense(
+  color: Node<'vec3'>,
+  logoMask: TextureNode,
+  intensity: Node<'float'>
+): Node<'vec3'> {
+  const aspect = screenSize.x.div(screenSize.y)
+  const centred = screenUV.sub(0.5).mul(vec2(aspect, 1))
+  const theta = atan(centred.y, centred.x)
+  const sense = MILES_LOOK.sense
+  const driftPhase = time.mul(0.35)
+  const driftPx = vec2(
+    sin(theta.mul(5).add(driftPhase)),
+    sin(theta.mul(7).sub(driftPhase))
+  ).mul(sense.contourDriftPx / Math.SQRT2)
+  const contourUv = screenUV.add(driftPx.div(screenSize))
+
+  const outer = dilateDisc(
+    logoMask,
+    contourUv,
+    sense.contourOuterPx,
+    sense.contourTaps
+  )
+  const inner = dilateDisc(
+    logoMask,
+    contourUv,
+    sense.contourInnerPx,
+    sense.contourTaps
+  )
+  const contourBand = outer.sub(inner).clamp(0, 1)
+  const contour = antialiasMask(contourBand, sense.contourFeatherPx).mul(
+    localFragmentMask(centred)
+  )
+
+  const arcs = logoArcMasks(centred)
+  const waveKeepOutDilation = selectWaveKeepOutDilation({ inner, outer })
+  const arcKeepOut = waveKeepOutDilation.oneMinus().clamp(0, 1)
+  const creamArcs = arcs.cream.mul(arcKeepOut)
+  const redArcs = arcs.red.mul(arcKeepOut)
+  const blueArcs = arcs.blue.mul(arcKeepOut)
   const gate = smoothstep(GATE_LOW, GATE_HIGH, intensity)
-  const withNeedles = mix(color, SENSE_RED, needle.mul(gate))
-  const withContour = mix(withNeedles, CREAM, contour.mul(gate))
-  const withCream = mix(withContour, CREAM, cream.clamp(0, 1).mul(gate))
-  const withRed = mix(withCream, SENSE_RED, red.clamp(0, 1).mul(gate))
-  return mix(withRed, SPIDER_BLUE, blue.clamp(0, 1).mul(gate))
+
+  const withContour = mix(color, CREAM, contour.mul(gate))
+  const withCream = mix(withContour, CREAM, creamArcs.clamp(0, 1).mul(gate))
+  const withRed = mix(withCream, SENSE_RED, redArcs.clamp(0, 1).mul(gate))
+  return mix(withRed, SPIDER_BLUE, blueArcs.clamp(0, 1).mul(gate))
 }
