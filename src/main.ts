@@ -1,6 +1,7 @@
 import { AmbientLight, Color, DirectionalLight, PerspectiveCamera, Scene } from 'three/webgpu'
 
 import { createBackdrop } from '@/gl/backdrop'
+import { debug } from '@/gl/debug/debug-tools'
 import { DragRotate } from '@/gl/logo/drag-rotate'
 import { createLogoMesh } from '@/gl/logo/logo-mesh'
 import { CartoonEffect } from '@/gl/post/cartoon-effect'
@@ -31,7 +32,8 @@ coolFill.position.set(-3, -1, 2)
 const ambient = new AmbientLight(0xfff0dd, 0.3)
 scene.add(keyLight, coolFill, ambient)
 
-scene.add(createBackdrop())
+const backdrop = createBackdrop()
+scene.add(backdrop.mesh)
 
 const logo = createLogoMesh()
 scene.add(logo)
@@ -51,6 +53,7 @@ new Renderer({
   camera,
   ticker,
   post: cartoon,
+  debug,
   onResize: (width, height) => {
     camera.aspect = width / height
     camera.updateProjectionMatrix()
@@ -64,3 +67,17 @@ ticker.add((dt) => {
 })
 
 ticker.start()
+
+// Collapsed — post-processing knobs, not the first thing worth seeing.
+debug.folder('post', (folder) => cartoon.registerDebug(folder), { expanded: false })
+debug.folder('look', (folder) => {
+  backdrop.registerDebug(folder)
+  for (const [label, light] of [
+    ['key', keyLight],
+    ['fill', coolFill],
+    ['ambient', ambient],
+  ] as const) {
+    folder.addBinding(light, 'intensity', { label: `${label} intensity`, min: 0, max: 4 })
+    folder.addBinding(light, 'color', { label: `${label} color`, color: { type: 'float' } })
+  }
+})

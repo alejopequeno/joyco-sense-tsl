@@ -1,3 +1,4 @@
+import type { FolderApi } from '@tweakpane/core'
 import {
   float,
   luminance,
@@ -11,6 +12,7 @@ import {
   vec3,
   vec4,
 } from 'three/tsl'
+import { Color } from 'three/webgpu'
 import type { Node } from 'three/webgpu'
 
 import { INK_COLOR } from '@/gl/palette'
@@ -49,8 +51,9 @@ const REC_601 = vec3(0.299, 0.587, 0.114)
 
 // The sketch blends a Parchment scan over the frame with blendDarken: the
 // brightest areas cap to warm paper instead of clipping to white. This is
-// that sheet, procedurally — the grain modulates it.
-const PAPER_SHEET = vec3(0.93, 0.88, 0.78)
+// that sheet's default colour — the grain modulates it. A uniform (not a
+// bare `vec3`) so `registerDebug` can bind it as a colour knob.
+const PAPER_SHEET_DEFAULT = new Color(0.93, 0.88, 0.78)
 
 export class CartoonEffect implements PostEffect {
   /** How far apart the Sobel taps sit — a wider contour line. */
@@ -78,9 +81,31 @@ export class CartoonEffect implements PostEffect {
   /** Extra RGB split at full spider-sense, in pixels, on top of `aberration`. */
   private readonly senseAberrationBoost = uniform(150)
 
+  /** The paper sheet colour the frame darkens toward — see `PAPER_SHEET_DEFAULT`. */
+  private readonly paperSheet = uniform(PAPER_SHEET_DEFAULT)
+
   /** Drives the overlay and the aberration boost. Clamped to 0..1. */
   setSenseIntensity(value: number): void {
     this.senseIntensity.value = Math.min(Math.max(value, 0), 1)
+  }
+
+  /** Binds every look knob into the given folder — contour/screening ranges,
+   * the aberration budget, and the paper sheet colour. */
+  registerDebug(folder: FolderApi): void {
+    folder.addBinding(this.contour, 'value', { label: 'contour', min: 0, max: 8 })
+    folder.addBinding(this.thickness, 'value', { label: 'thickness', min: 0, max: 2 })
+    folder.addBinding(this.boost, 'value', { label: 'boost', min: 0.5, max: 2 })
+    folder.addBinding(this.scale, 'value', { label: 'scale', min: 0.5, max: 4 })
+    folder.addBinding(this.dark, 'value', { label: 'dark', min: 0, max: 1 })
+    folder.addBinding(this.mid, 'value', { label: 'mid', min: 0, max: 1 })
+    folder.addBinding(this.light, 'value', { label: 'light', min: 0, max: 1 })
+    folder.addBinding(this.aberration, 'value', { label: 'aberration', min: 0, max: 300 })
+    folder.addBinding(this.senseAberrationBoost, 'value', {
+      label: 'sense aberration boost',
+      min: 0,
+      max: 400,
+    })
+    folder.addBinding(this.paperSheet, 'value', { label: 'paper sheet', color: { type: 'float' } })
   }
 
   build(scenePass: ScenePass): Node<'vec4'> {
@@ -154,7 +179,7 @@ export class CartoonEffect implements PostEffect {
 
     const grain = printGrain(screenUV.mul(screenSize.y.div(GRAIN_REFERENCE_HEIGHT)))
 
-    const papered = blendDarken(screened, PAPER_SHEET.mul(grain), float(1))
+    const papered = blendDarken(screened, this.paperSheet.mul(grain), float(1))
 
     return vec4(
       spiderSense(papered, scenePass.getTextureNode('mask'), this.senseIntensity),

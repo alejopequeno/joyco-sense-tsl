@@ -2,6 +2,7 @@ import { float, mrt, normalView, output, pass } from 'three/tsl'
 import { NoToneMapping, RenderPipeline, SRGBColorSpace, WebGPURenderer } from 'three/webgpu'
 import type { Camera, Scene } from 'three/webgpu'
 
+import type { SceneContext } from '@/gl/debug/debug-tools'
 import { Disposer } from '@/gl/dispose'
 import type { PostEffect } from '@/gl/post/post-effect'
 import { PRIORITY, type Ticker } from '@/gl/ticker'
@@ -23,6 +24,12 @@ export type RendererOptions = {
    * the effect builds.
    */
   post?: PostEffect
+  /**
+   * The shared debug pane singleton. When present, the scene tooling folder
+   * (camera monitor, grid, explore-orbit, perf HUD) attaches once the
+   * pipeline is built. Optional so headless/test callers can skip it.
+   */
+  debug?: { attachScene(ctx: SceneContext): () => void }
 }
 
 /**
@@ -39,7 +46,7 @@ export class Renderer {
   private disposed = false
   private ready = false
 
-  constructor({ canvas, scene, camera, ticker, onResize, post }: RendererOptions) {
+  constructor({ canvas, scene, camera, ticker, onResize, post, debug }: RendererOptions) {
     this.canvas = canvas
     this.onResize = onResize
 
@@ -67,11 +74,35 @@ export class Renderer {
         const isWebGPU =
           (renderer.backend as { isWebGPUBackend?: boolean }).isWebGPUBackend === true
         console.info(`[gl] backend: ${isWebGPU ? 'webgpu' : 'webgl2'}`)
-        const draw = post
+
+        // Debug's explore-orbit renders through a throwaway camera clone
+        // instead of the game camera. With a post pipeline, the scene pass
+        // node's own `camera` field is reassigned directly — it is read
+        // fresh every render (verified against `PassNode`'s `updateBefore`,
+        // which reads `this.camera` per call). Without a pipeline there is
+        // no pass node to redirect, so a mutable holder stands in for it.
+        let renderCamera = camera
+        const { draw, setCamera } = post
           ? this.buildPipeline(post, scene, camera)
-          : () => renderer.render(scene, camera)
+          : { draw: () => renderer.render(scene, renderCamera), setCamera: null }
         const removeRender = ticker.add(draw, PRIORITY.RENDER)
         this.disposer.add(removeRender)
+
+        if (debug) {
+          const setRenderCamera = (cam: Camera | null): void => {
+            renderCamera = cam ?? camera
+            setCamera?.(renderCamera)
+          }
+          const removeDebug = debug.attachScene({
+            scene,
+            camera,
+            canvas: this.canvas,
+            renderer,
+            ticker,
+            setRenderCamera,
+          })
+          this.disposer.add(removeDebug)
+        }
       })
       .catch((error: unknown) => {
         console.error('[gl] renderer init failed', error)
@@ -87,9 +118,15 @@ export class Renderer {
 
   /**
    * Wires the scene pass, its MRT, and the effect's graph into a
-   * `RenderPipeline`, and returns the per-frame draw call.
+   * `RenderPipeline`, and returns the per-frame draw call plus a setter that
+   * redirects the pass's own camera — what `setRenderCamera` calls into so
+   * debug's explore-orbit can render through a clone.
    */
-  private buildPipeline(post: PostEffect, scene: Scene, camera: Camera): () => void {
+  private buildPipeline(
+    post: PostEffect,
+    scene: Scene,
+    camera: Camera,
+  ): { draw: () => void; setCamera: (cam: Camera) => void } {
     const scenePass = pass(scene, camera)
     // The extra buffer the contour pass reads. Asking for it here is what
     // saves the second scene render the original sketch needed.
@@ -100,7 +137,12 @@ export class Renderer {
       post.dispose?.()
       pipeline.dispose()
     })
-    return () => pipeline.render()
+    return {
+      draw: () => pipeline.render(),
+      setCamera: (cam) => {
+        scenePass.camera = cam
+      },
+    }
   }
 
   private setSize(): void {
