@@ -10,9 +10,9 @@ import {
   vec3,
   vec4,
 } from 'three/tsl'
-import { Color } from 'three/webgpu'
 import type { Node } from 'three/webgpu'
 
+import { INK_COLOR } from '@/gl/palette'
 import { blendDarken, blendScreen } from '@/gl/nodes/blend'
 import { halftoneDots, lines, rotateUv } from '@/gl/nodes/halftone'
 import { printGrain } from '@/gl/nodes/paper'
@@ -37,11 +37,6 @@ import type { PostEffect, ScenePass } from '@/gl/post/post-effect'
 // Grain is sized against a reference height so it does not swim when the
 // window resizes.
 const GRAIN_REFERENCE_HEIGHT = 1000
-
-// The sketch's ink is `new Color(64, 43, 43)` divided by 255 in the shader —
-// three would read those as linear values well past white, hence the manual
-// scale. A dark warm brown, not black.
-const INK_COLOR = new Color(64 / 255, 43 / 255, 43 / 255)
 
 // How far the ink pulls each screened pixel. The original hardcodes 0.5.
 const INK_STRENGTH = 0.5

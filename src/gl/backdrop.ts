@@ -1,28 +1,33 @@
-import { fract, length, mix, screenSize, screenUV, smoothstep, step, vec2, vec3 } from 'three/tsl'
+import { mix, mx_noise_float, screenSize, screenUV, smoothstep, vec2, vec3 } from 'three/tsl'
 import { Mesh, MeshBasicNodeMaterial, PlaneGeometry } from 'three/webgpu'
 
+import { CREAM, SPIDER_BLUE, SPIDER_RED } from '@/gl/palette'
+
 /**
- * The flat graphic field the logo sits against: a blue-to-red split with a
- * Ben-Day dot lattice over it, the way the film stages Miles against solid
- * colour rather than a rendered environment.
- *
- * Unlit on purpose. It carries no normal variation, so the contour pass leaves
- * it alone and only outlines the logo — which is what keeps the silhouette
- * reading as ink rather than everything picking up an edge.
+ * The field the logo sits against: soft blobby patches of the film's duotone,
+ * post-cartoon-iii style. Unlit and normal-flat on purpose, so the contour
+ * pass leaves it alone; the screening layers in the post chain are what turn
+ * its bright patches into Ben-Day dots and its dark ones into hatching.
  */
 
-const SPIDER_BLUE = vec3(0.09, 0.13, 0.62)
-const SPIDER_RED = vec3(0.78, 0.06, 0.14)
+// Noise frequencies over aspect-corrected screen space. Low: a handful of
+// blobs across the frame, not a texture.
+const DUOTONE_SCALE = 1.4
+const PATCH_SCALE = 1.1
+// Decorrelates the cream patches from the duotone blobs.
+const PATCH_OFFSET = 31.7
 
-// Where the two fields meet, and how hard. A tight ramp keeps it graphic
-// instead of reading as a soft gradient.
-const SPLIT_CENTER = 0.5
-const SPLIT_SOFTNESS = 0.28
+// How hard the blue and red fields cut against each other. Tight enough to
+// stay graphic, soft enough not to alias.
+const DUOTONE_EDGE_LOW = 0.38
+const DUOTONE_EDGE_HIGH = 0.62
 
-// Dot lattice, in pixels.
-const DOT_SPACING = 26
-const DOT_RADIUS = 0.3
-const DOT_LIFT = 0.35
+// Cream patches: where the noise crests, the page shows through. The post
+// chain's halftone threshold sits at 0.62 luma, so a 0.85 lift is comfortably
+// inside dot territory.
+const PATCH_EDGE_LOW = 0.55
+const PATCH_EDGE_HIGH = 0.85
+const PATCH_LIFT = 0.85
 
 // Far enough back to clear the logo's rotation, large enough to cover the
 // frustum at that distance on any reasonable aspect ratio.
@@ -32,18 +37,22 @@ const BACKDROP_SIZE = 40
 export function createBackdrop(): Mesh {
   const material = new MeshBasicNodeMaterial()
 
-  const field = mix(
+  // Aspect-corrected so blobs stay round on wide screens.
+  const p = screenUV.mul(vec2(screenSize.x.div(screenSize.y), 1))
+
+  const duotoneNoise = mx_noise_float(vec3(p.mul(DUOTONE_SCALE), 0)).mul(0.5).add(0.5)
+  const duotone = mix(
     SPIDER_BLUE,
     SPIDER_RED,
-    smoothstep(SPLIT_CENTER - SPLIT_SOFTNESS, SPLIT_CENTER + SPLIT_SOFTNESS, screenUV.x)
+    smoothstep(DUOTONE_EDGE_LOW, DUOTONE_EDGE_HIGH, duotoneNoise)
   )
 
-  // Screen-space lattice, so the dots stay a constant size on screen the way
-  // printed halftone does — they belong to the page, not to the geometry.
-  const cell = fract(screenUV.mul(screenSize).div(DOT_SPACING)).sub(vec2(0.5))
-  const dot = step(length(cell), DOT_RADIUS)
+  const patchNoise = mx_noise_float(vec3(p.mul(PATCH_SCALE).add(PATCH_OFFSET), 0))
+    .mul(0.5)
+    .add(0.5)
+  const lift = smoothstep(PATCH_EDGE_LOW, PATCH_EDGE_HIGH, patchNoise)
 
-  material.colorNode = mix(field, field.add(DOT_LIFT), dot)
+  material.colorNode = mix(duotone, CREAM, lift.mul(PATCH_LIFT))
 
   const backdrop = new Mesh(new PlaneGeometry(BACKDROP_SIZE, BACKDROP_SIZE), material)
   backdrop.position.z = -BACKDROP_DISTANCE
