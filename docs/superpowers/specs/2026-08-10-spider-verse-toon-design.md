@@ -163,3 +163,26 @@ the post screening over smooth standard lighting.
   when at rest, exactly the original behavior.
 - **Outlines softened**: the Sobel contour reads too heavy against the
   sketch — contour tap distance 4 → 2.5, thickness 1 → 0.8.
+
+## Iteration 5 (2026-08-11): the user's squiggles + the sketch's paper light
+
+Side-by-side against the live sketch (whose control panel is visible in the
+reference screenshot: roughness 0.40, paper Parchment, contour 4, thresholds
+0.86/0.62/0.62), the scene read solid and over-saturated. Two changes:
+
+- **The user's squiggle module is adopted** from their experiment branch
+  (`backup/experiments-2026-08-11`): continuously travelling arcs (phase
+  speed per stroke, no flicker re-randomization), a contour that drifts
+  smoothly, and a keep-out so arcs never overlap the contour band. Vendored
+  wholesale with its support modules (`look.ts`, `nodes/morphology.ts`,
+  `post/spider-sense-geometry.ts`) and their tests. Same `spiderSense`
+  signature, so the post chain is untouched by this part.
+- **Sketch-faithful light and paper:**
+  - Lights: neutral warm white key + dim cool fill + warm ambient replace
+    the saturated red/blue pair — the colour comes back to the material's
+    spline, as in the sketch.
+  - Material roughness 0.2 → 0.4 (the sketch's own panel value).
+  - Paper: the original's `blendDarken` beige sheet is ported — bright
+    areas cap to warm paper carrying the print grain, instead of a barely
+    visible brightness multiplier.
+  - Backdrop duotone desaturated toward cream (salmon / dusty blue).
