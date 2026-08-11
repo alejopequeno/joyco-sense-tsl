@@ -119,8 +119,11 @@ export const spiderSense = Fn(([color, intensity]: [Node<'vec3'>, Node<'float'>]
     const width = taper.mul(STROKE_HALF_WIDTH)
 
     const body = smoothstep(width, width.add(STROKE_FEATHER), distance).oneMinus()
+    // Hard cut at the tips: the taper thins the width, but on its own it
+    // still leaves a hairline along the infinite centreline.
+    const window = step(tip, float(1))
     const alive = step(STROKE_DROPOUT, hash(flicker.add(index * 13.13 + 3.7)))
-    const mask = body.mul(alive)
+    const mask = body.mul(window).mul(alive)
 
     if (stroke.color === 'cream') cream = cream.add(mask)
     else if (stroke.color === 'red') red = red.add(mask)
@@ -143,6 +146,7 @@ export const spiderSense = Fn(([color, intensity]: [Node<'vec3'>, Node<'float'>]
     .pow(2)
     .mul(0.55)
     .add(0.45)
+  // Assumes screenUV.y grows upward (top = y > 0.5); flip BOTTOM_EDGE_WEIGHT's mix if the backend disagrees — verified visually.
   const topWeight = mix(float(BOTTOM_EDGE_WEIGHT), float(1), step(0.5, screenUV.y))
 
   const reach = columnSeed
