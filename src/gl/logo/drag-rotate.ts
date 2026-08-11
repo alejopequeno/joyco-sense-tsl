@@ -49,6 +49,11 @@ export class DragRotate {
   private pendingYaw = 0
   private pendingPitch = 0
 
+  /** True while a pointer is actively dragging. Feeds the spider-sense envelope. */
+  get isDragging(): boolean {
+    return this.dragging
+  }
+
   constructor(target: Object3D, element: HTMLElement, ticker: Ticker) {
     this.target = target
     // Yaw must apply before pitch or the two axes cross-contaminate and the
