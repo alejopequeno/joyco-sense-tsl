@@ -19,6 +19,7 @@ import { printGrain } from '@/gl/nodes/paper'
 import { sobel } from '@/gl/nodes/sobel'
 import { chromaticAberration } from '@/gl/post/chromatic-aberration'
 import type { PostEffect, ScenePass } from '@/gl/post/post-effect'
+import { spiderSense } from '@/gl/post/spider-sense'
 
 /**
  * Ported from spite/sketch (MIT) — `post-cartoon-iii/post.js`, "Post Cartoon
@@ -66,13 +67,24 @@ export class CartoonEffect implements PostEffect {
   /** RGB split at the frame edge, in pixels. */
   private readonly aberration = uniform(100)
 
+  /** Spider-sense overlay strength, 0..1. Fed per frame from the envelope. */
+  private readonly senseIntensity = uniform(0)
+  /** Extra RGB split at full spider-sense, in pixels, on top of `aberration`. */
+  private readonly senseAberrationBoost = uniform(150)
+
+  /** Drives the overlay and the aberration boost. Clamped to 0..1. */
+  setSenseIntensity(value: number): void {
+    this.senseIntensity.value = Math.min(Math.max(value, 0), 1)
+  }
+
   build(scenePass: ScenePass): Node<'vec4'> {
     // The aberration has to sample its input at shifted coordinates, and you
     // cannot sample a computed graph — so the composite is rendered to a
     // texture first. `rtt` with no size tracks the viewport on its own. This is
     // the sketch's second FBO, minus the manual plumbing.
     const composite = rtt(this.buildComposite(scenePass))
-    return chromaticAberration(composite, this.aberration)
+    const delta = this.aberration.add(this.senseIntensity.mul(this.senseAberrationBoost))
+    return chromaticAberration(composite, delta)
   }
 
   private buildComposite(scenePass: ScenePass): Node<'vec4'> {
@@ -139,7 +151,7 @@ export class CartoonEffect implements PostEffect {
     // as film.
     const grain = printGrain(screenUV.mul(screenSize.y.div(GRAIN_REFERENCE_HEIGHT)))
 
-    return vec4(screened.mul(grain), 1)
+    return vec4(spiderSense(screened.mul(grain), this.senseIntensity), 1)
   }
 
   /**

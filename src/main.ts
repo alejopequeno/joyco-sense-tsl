@@ -4,6 +4,7 @@ import { createBackdrop } from '@/gl/backdrop'
 import { DragRotate } from '@/gl/logo/drag-rotate'
 import { createLogoMesh } from '@/gl/logo/logo-mesh'
 import { CartoonEffect } from '@/gl/post/cartoon-effect'
+import { senseStep } from '@/gl/post/sense-envelope'
 import { Renderer } from '@/gl/renderer'
 import { FloatingSpheres } from '@/gl/spheres/floating-spheres'
 import { Ticker } from '@/gl/ticker'
@@ -29,18 +30,26 @@ const ticker = new Ticker()
 const spheres = new FloatingSpheres(ticker)
 scene.add(spheres.group)
 
-new DragRotate(logo, canvas, ticker)
+const dragRotate = new DragRotate(logo, canvas, ticker)
+
+const cartoon = new CartoonEffect()
 
 new Renderer({
   canvas,
   scene,
   camera,
   ticker,
-  post: new CartoonEffect(),
+  post: cartoon,
   onResize: (width, height) => {
     camera.aspect = width / height
     camera.updateProjectionMatrix()
   },
+})
+
+let senseIntensity = 0
+ticker.add((dt) => {
+  senseIntensity = senseStep(senseIntensity, dt, dragRotate.isDragging)
+  cartoon.setSenseIntensity(senseIntensity)
 })
 
 ticker.start()
