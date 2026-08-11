@@ -34,15 +34,15 @@ const DUOTONE_EDGE_HIGH = 0.62
 
 // The film palette at print strength: pulled toward the paper so the field
 // reads as suit red/blue over paper, not poster-saturated.
-const BLUE_SOFTEN = 0.2
-const RED_SOFTEN = 0.3
+const BLUE_SOFTEN = 0.08
+const RED_SOFTEN = 0.12
 
 // Cream patches: where the noise crests, the page shows through. The post
 // chain's halftone threshold sits at 0.62 luma, so a 0.85 lift is comfortably
 // inside dot territory.
 const PATCH_EDGE_LOW = 0.55
 const PATCH_EDGE_HIGH = 0.85
-const PATCH_LIFT = 0.85
+const PATCH_LIFT = 0.55
 
 // Far enough back to clear the logo's rotation, large enough to cover the
 // frustum at that distance on any reasonable aspect ratio.

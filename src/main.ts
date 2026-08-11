@@ -24,11 +24,11 @@ camera.position.set(0, 0, 3.2)
 // spline do the talking: a warm white key from the upper right (where the
 // reference's highlights sit), a dim cool fill from the left so shadows
 // lean blue instead of black, and a warm ambient floor.
-const keyLight = new DirectionalLight(0xfff2e0, 2.6)
+const keyLight = new DirectionalLight(0xfff2e0, 2.1)
 keyLight.position.set(2.5, 3, 4)
-const coolFill = new DirectionalLight(0xbfd0ff, 0.9)
+const coolFill = new DirectionalLight(0xbfd0ff, 0.7)
 coolFill.position.set(-3, -1, 2)
-const ambient = new AmbientLight(0xfff0dd, 0.55)
+const ambient = new AmbientLight(0xfff0dd, 0.3)
 scene.add(keyLight, coolFill, ambient)
 
 scene.add(createBackdrop())
