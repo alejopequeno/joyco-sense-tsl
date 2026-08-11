@@ -48,7 +48,7 @@ new Renderer({
 
 let senseIntensity = 0
 ticker.add((dt) => {
-  senseIntensity = senseStep(senseIntensity, dt, dragRotate.isDragging)
+  senseIntensity = senseStep(senseIntensity, dt, dragRotate.isDragging || dragRotate.isPosing)
   cartoon.setSenseIntensity(senseIntensity)
 })
 

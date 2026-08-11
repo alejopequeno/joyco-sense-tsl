@@ -12,8 +12,38 @@ const IDLE_YAW_SPEED = 0.15
 /** Below this residual speed the idle spin takes back over. */
 const IDLE_RESUME_VELOCITY = 0.05
 
+/**
+ * The presentation pose a tap snaps the logo to, tuned by eye against the
+ * reference screenshot. Radians.
+ */
+export const POSE_YAW = -0.45
+export const POSE_PITCH = 0.18
+/** Exponential time constant of the pose tween. Snappy but not instant. */
+const POSE_TAU = 0.16
+/** How long the pose (and the spider-sense burst) holds before idle resumes. */
+const POSE_HOLD_SECONDS = 1.6
+/** Pointer travel below this on release counts as a tap, not a drag. */
+const TAP_MAX_TRAVEL_PX = 6
+
+const TAU_RADIANS = Math.PI * 2
+
 export function clampPitch(pitch: number): number {
   return Math.min(Math.max(pitch, -MAX_PITCH), MAX_PITCH)
+}
+
+/** Signed shortest way from one angle to another, in (-π, π]. */
+export function shortestAngleDelta(from: number, to: number): number {
+  const raw = (((to - from + Math.PI) % TAU_RADIANS) + TAU_RADIANS) % TAU_RADIANS
+  return raw - Math.PI
+}
+
+/**
+ * One exponential step of the pose tween. Same frame-rate-independence
+ * argument as `decayVelocity`; the delta goes through `shortestAngleDelta`
+ * so an idle spin that has wound past 2π still tweens the short way.
+ */
+export function poseStep(current: number, target: number, dt: number): number {
+  return current + shortestAngleDelta(current, target) * (1 - Math.exp(-dt / POSE_TAU))
 }
 
 /**
@@ -49,9 +79,20 @@ export class DragRotate {
   private pendingYaw = 0
   private pendingPitch = 0
 
+  private posing = false
+  private poseTimer = 0
+  // Pointer distance accumulated during the current gesture, to tell a tap
+  // from a drag on release.
+  private travel = 0
+
   /** True while a pointer is actively dragging. Feeds the spider-sense envelope. */
   get isDragging(): boolean {
     return this.dragging
+  }
+
+  /** True while the logo is tweening to (and holding) the tap pose. */
+  get isPosing(): boolean {
+    return this.posing
   }
 
   constructor(target: Object3D, element: HTMLElement, ticker: Ticker) {
@@ -66,12 +107,16 @@ export class DragRotate {
       this.lastY = event.clientY
       this.yawVelocity = 0
       this.pitchVelocity = 0
+      this.posing = false
+      this.travel = 0
       // Keeps the gesture alive when the pointer leaves the canvas.
       element.setPointerCapture(event.pointerId)
     }
 
     const onPointerMove = (event: PointerEvent): void => {
       if (!this.dragging) return
+      this.travel +=
+        Math.abs(event.clientX - this.lastX) + Math.abs(event.clientY - this.lastY)
       this.pendingYaw += (event.clientX - this.lastX) * RADIANS_PER_PIXEL
       this.pendingPitch += (event.clientY - this.lastY) * RADIANS_PER_PIXEL
       this.lastX = event.clientX
@@ -81,6 +126,12 @@ export class DragRotate {
     const onPointerUp = (event: PointerEvent): void => {
       if (!this.dragging) return
       this.dragging = false
+      if (this.travel < TAP_MAX_TRAVEL_PX) {
+        this.posing = true
+        this.poseTimer = 0
+        this.yawVelocity = 0
+        this.pitchVelocity = 0
+      }
       if (element.hasPointerCapture(event.pointerId)) {
         element.releasePointerCapture(event.pointerId)
       }
@@ -115,6 +166,11 @@ export class DragRotate {
       }
       this.pendingYaw = 0
       this.pendingPitch = 0
+    } else if (this.posing) {
+      this.poseTimer += dt
+      this.yaw = poseStep(this.yaw, POSE_YAW, dt)
+      this.pitch = clampPitch(poseStep(this.pitch, POSE_PITCH, dt))
+      if (this.poseTimer >= POSE_HOLD_SECONDS) this.posing = false
     } else {
       this.yawVelocity = decayVelocity(this.yawVelocity, dt)
       this.pitchVelocity = decayVelocity(this.pitchVelocity, dt)
