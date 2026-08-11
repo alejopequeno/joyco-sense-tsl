@@ -89,3 +89,33 @@ Reused as-is: `nodes/halftone.ts`, `nodes/sobel.ts`, `nodes/paper.ts`,
 - Unit tests: spider-sense intensity envelope (attack/decay), floating-sphere
   layout/drift maths, following the existing `*.test.ts` pattern.
 - Shaders and final look: manual visual verification against both references.
+
+## Iteration 2 (same day): overlay redesign + tap-to-pose
+
+Visual review against the running scene showed the first overlay reading as
+multicoloured bunting, not spider-sense. Comic canon (Ditko) and the film
+references define the language: short hand-drawn wavy strokes radiating
+around the subject, plus thin red needles flashing in from the frame edges.
+
+Changes to the spider-sense overlay (`src/gl/post/spider-sense.ts` rewrite):
+
+- **Radial squiggles replace the full-width horizontal lines.** Eight short
+  tapered wavy strokes arranged on a ring around screen centre
+  (aspect-corrected radius 0.25–0.4), oriented tangentially, varied lengths
+  and wave frequencies. Mostly cream, two red, one blue. Position/phase
+  jitter re-randomized per 12 Hz flicker step; occasional per-stroke dropout.
+- **Thin needles replace the sawtooth edge spikes.** Narrow-based long
+  spikes, sparse and irregular (roughly 45% of columns active per flicker
+  step), hot red only, longest near the frame corners, stronger along the
+  top edge than the bottom.
+
+New interaction (tap-to-pose):
+
+- A tap (pointer up with under ~6 px of travel) tweens the logo to a fixed
+  presentation pose (`POSE_YAW`/`POSE_PITCH`, tuned by eye to the reference
+  screenshot) with a frame-rate-independent exponential approach that takes
+  the shortest angular path. The spider-sense overlay burns at full
+  intensity for the pose hold (~1.6 s), then decays as usual and the idle
+  spin resumes from the pose.
+- Dragging is unchanged (free rotation + inertia); starting a drag cancels
+  an in-flight pose.
