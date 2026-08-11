@@ -203,3 +203,26 @@ canonical values: classic suit red `#DF1F2D` / dark red `#B11313` / suit blue
   red/blue again over the paper.
 - Values stay raw sRGB-as-linear fractions, matching the existing palette
   convention.
+- Follow-up darkening pass: softens 0.08/0.12, patch lift 0.55, lights
+  2.1/0.7/0.3.
+
+## Iteration 7 (2026-08-11): debug pane ported from JOYCO jam
+
+Look tuning has been blind (edit constant → reload → screenshot). The JOYCO
+jam engine (`~/Documents/Work/JOYCO/internal/jam`) has a debug system built
+for exactly this stack — one shared Tweakpane gated behind `?debug` / OPT+D,
+dynamically imported so nothing enters the player bundle, with scene tooling
+(camera monitor, grid, explore-orbit on a camera clone, stats-gl perf HUD)
+and a declarative knob schema. It is ported and adapted to this repo:
+
+- `src/gl/debug/` — `schema.ts` (bindSchema/DebugSchema/addCopyButton),
+  `perf-monitor.ts` (stats-gl), `debug-tools.ts` (the pane, adapted to this
+  repo's `Ticker` instance — passed via the scene context — and `Disposer`).
+- `Renderer` accepts an optional `debug` handle, attaches the scene tooling
+  once the backend is live, and lets the pane swap the render camera by
+  reassigning the scene pass's camera (explore mode).
+- Knobs: post-chain uniforms (contour, thickness, boost, scale, luma
+  thresholds, aberration, sense boost, paper sheet colour — the sheet
+  becomes a uniform), the three lights, and the backdrop's soften/lift
+  values (converted to uniforms, exposed through a register hook).
+- Dependencies added: `tweakpane`, `@tweakpane/core`, `stats-gl`.
