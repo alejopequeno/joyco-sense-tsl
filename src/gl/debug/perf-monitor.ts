@@ -3,6 +3,14 @@
 // `renderer.info`. Mounted on demand from the shared debug pane's "perf HUD"
 // toggle, with the live renderer and this app's `Ticker` instance.
 //
+// stats-gl itself is dynamically imported — same reasoning as the Pane and
+// OrbitControls imports in debug-tools.ts: a visitor who never opens
+// `?debug` (or never flips the perf toggle) should never download it. jam's
+// original statically imports stats-gl at module scope, which — once
+// `debug-tools.ts` and this module are pulled into the main bundle — would
+// have shipped it to every visitor; that's the one thing this port
+// deliberately does NOT carry over.
+//
 // stats-gl knows the WebGPURenderer natively: `init(renderer)` patches
 // `info.reset` to open the CPU sample, and `update()` closes it. Left to
 // autoReset, that reset fires in the renderer's *internal* rAF loop — a
@@ -13,7 +21,6 @@
 // ticker frame, update at the bottom — the sample brackets exactly
 // sim → camera → render → DOM. On the WebGL2 fallback backend the GPU panel
 // simply stays absent (no timestamp queries), everything else works.
-import Stats from 'stats-gl'
 import type { WebGPURenderer } from 'three/webgpu'
 
 import type { Ticker } from '@/gl/ticker'
@@ -21,18 +28,33 @@ import type { Ticker } from '@/gl/ticker'
 /**
  * Mount the HUD for an initialized renderer, driven by `ticker`. Returns a
  * dispose so the debug toggle can switch it off and renderer teardown never
- * leaves an overlay or ticker callback behind.
+ * leaves an overlay or ticker callback behind — including a dispose that
+ * races the still-pending `import('stats-gl')` (or the `stats.init()`
+ * handshake after it): the `disposed` flag is checked after each async step,
+ * so a fast toggle-on/toggle-off never mounts the DOM node or the ticker
+ * slots, and `teardownStats` (set as soon as the instance exists, even if
+ * construction never finishes appending it) always runs on the way out.
  */
 export function mountPerfMonitor(renderer: WebGPURenderer, ticker: Ticker): () => void {
-  const stats = new Stats({ trackFPS: true, trackHz: true, trackGPU: true })
-
   let disposed = false
   let removeReset: (() => void) | undefined
   let removeTick: (() => void) | undefined
+  let teardownStats: (() => void) | undefined
 
-  // init resolves once stats has hooked the renderer (async: it may await the
-  // GPU timestamp handshake). Everything DOM/ticker waits for it.
-  const setup = stats.init(renderer).then(() => {
+  const setup = import('stats-gl').then(async ({ default: Stats }) => {
+    if (disposed) return
+
+    const stats = new Stats({ trackFPS: true, trackHz: true, trackGPU: true })
+    // Set immediately (before the async `init()` below) so a dispose that
+    // races the handshake still finds an instance to tear down.
+    teardownStats = () => {
+      stats.dom.remove()
+      stats.dispose()
+    }
+
+    // init resolves once stats has hooked the renderer (async: it may await
+    // the GPU timestamp handshake). Everything DOM/ticker waits for it.
+    await stats.init(renderer)
     if (disposed) return
 
     const dtPanel = stats.addPanel(new Stats.Panel('DT', '#0cf', '#012'))
@@ -104,8 +126,7 @@ export function mountPerfMonitor(renderer: WebGPURenderer, ticker: Ticker): () =
     renderer.info.autoReset = true
     // Same shape as the canvas host's dispose: never tear down mid-init.
     void setup.finally(() => {
-      stats.dom.remove()
-      stats.dispose()
+      teardownStats?.()
     })
   }
 }
