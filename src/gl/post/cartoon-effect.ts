@@ -151,7 +151,10 @@ export class CartoonEffect implements PostEffect {
     // as film.
     const grain = printGrain(screenUV.mul(screenSize.y.div(GRAIN_REFERENCE_HEIGHT)))
 
-    return vec4(spiderSense(screened.mul(grain), this.senseIntensity), 1)
+    return vec4(
+      spiderSense(screened.mul(grain), scenePass.getTextureNode('mask'), this.senseIntensity),
+      1
+    )
   }
 
   /**

@@ -1,4 +1,14 @@
-import { mix, mx_noise_float, screenSize, screenUV, smoothstep, vec2, vec3 } from 'three/tsl'
+import {
+  float,
+  mix,
+  mrt,
+  mx_noise_float,
+  screenSize,
+  screenUV,
+  smoothstep,
+  vec2,
+  vec3,
+} from 'three/tsl'
 import { Mesh, MeshBasicNodeMaterial, PlaneGeometry } from 'three/webgpu'
 
 import { CREAM, SPIDER_BLUE, SPIDER_RED } from '@/gl/palette'
@@ -53,6 +63,9 @@ export function createBackdrop(): Mesh {
   const lift = smoothstep(PATCH_EDGE_LOW, PATCH_EDGE_HIGH, patchNoise)
 
   material.colorNode = mix(duotone, CREAM, lift.mul(PATCH_LIFT))
+  // The silhouette mask the spider-sense contour dilates: the backdrop is
+  // "off", everything else inherits the pass default of 1.
+  material.mrtNode = mrt({ mask: float(0) })
 
   const backdrop = new Mesh(new PlaneGeometry(BACKDROP_SIZE, BACKDROP_SIZE), material)
   backdrop.position.z = -BACKDROP_DISTANCE

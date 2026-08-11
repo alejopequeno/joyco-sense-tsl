@@ -1,4 +1,4 @@
-import { mrt, normalView, output, pass } from 'three/tsl'
+import { float, mrt, normalView, output, pass } from 'three/tsl'
 import { NoToneMapping, RenderPipeline, SRGBColorSpace, WebGPURenderer } from 'three/webgpu'
 import type { Camera, Scene } from 'three/webgpu'
 
@@ -93,7 +93,7 @@ export class Renderer {
     const scenePass = pass(scene, camera)
     // The extra buffer the contour pass reads. Asking for it here is what
     // saves the second scene render the original sketch needed.
-    scenePass.setMRT(mrt({ output, normal: normalView }))
+    scenePass.setMRT(mrt({ output, normal: normalView, mask: float(1) }))
 
     const pipeline = new RenderPipeline(this.renderer, post.build(scenePass))
     this.disposer.add(() => {
