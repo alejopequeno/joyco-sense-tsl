@@ -119,3 +119,30 @@ New interaction (tap-to-pose):
   spin resumes from the pose.
 - Dragging is unchanged (free rotation + inertia); starting a drag cancels
   an in-flight pose.
+
+## Iteration 3 (same day): silhouette language + still logo
+
+Further reference review (Ditko-style fan art, Spider-Verse video edits, a
+film still of the sense burst) refined the overlay language and the motion:
+
+- **Radial squiggles point outward.** The strokes' local frame rotates 90°:
+  the wave now runs along the radial axis (flame-like, radiating from the
+  logo), not tangentially around the ring.
+- **Silhouette contour.** A cream offset outline traces the actual
+  silhouette of the logo and spheres, like the fan art's body contour
+  strokes. Implementation: an object-vs-backdrop mask rides the scene
+  pass MRT (`mask` channel — backdrop overrides it to 0 via
+  `material.mrtNode`), and the overlay dilates it at two radii with
+  angular taps; the difference is a band at a fixed offset from the
+  silhouette, wobbled by a low-frequency angular sine so it reads
+  hand-drawn. Gated by intensity like everything else.
+- **Needles converge on screen centre.** The edge needles become polar
+  rays: thin triangles in angle around screen centre, clipped to the
+  top/bottom edge zones — every needle visibly points at the centre, as
+  in the film still.
+- **The logo no longer idles.** Idle spin is removed; the logo moves only
+  when touched (drag or tap-to-pose). The spheres keep drifting on their
+  own.
+- The comic caption box idea was considered and dropped.
+- `post-hope` (posterization) noted as a possible future direction, out of
+  scope here.
