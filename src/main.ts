@@ -5,6 +5,7 @@ import { DragRotate } from '@/gl/logo/drag-rotate'
 import { createLogoMesh } from '@/gl/logo/logo-mesh'
 import { CartoonEffect } from '@/gl/post/cartoon-effect'
 import { Renderer } from '@/gl/renderer'
+import { FloatingSpheres } from '@/gl/spheres/floating-spheres'
 import { Ticker } from '@/gl/ticker'
 import '@/style.css'
 
@@ -24,6 +25,9 @@ const logo = createLogoMesh()
 scene.add(logo)
 
 const ticker = new Ticker()
+
+const spheres = new FloatingSpheres(ticker)
+scene.add(spheres.group)
 
 new DragRotate(logo, canvas, ticker)
 
