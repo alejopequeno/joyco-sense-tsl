@@ -16,8 +16,8 @@ import { createSpiderVerseMaterial } from '@/gl/materials/spider-verse-material'
  * group is what DragRotate rotates, so pose survives every swap.
  */
 
-const TORUS_KNOT_RADIUS = 0.42
-const TORUS_KNOT_TUBE = 0.16
+const TORUS_KNOT_RADIUS = 0.34
+const TORUS_KNOT_TUBE = 0.13
 const TORUS_KNOT_TUBULAR_SEGMENTS = 200
 const TORUS_KNOT_RADIAL_SEGMENTS = 32
 
