@@ -2,9 +2,9 @@ import { AmbientLight, Color, DirectionalLight, PerspectiveCamera, Scene } from 
 
 import { createBackdrop } from '@/gl/backdrop'
 import { debug } from '@/gl/debug/debug-tools'
-import { DragRotate } from '@/gl/logo/drag-rotate'
 import { HeroCycle } from '@/gl/hero/hero-cycle'
 import { HeroDirector } from '@/gl/hero/hero-director'
+import { DragRotate } from '@/gl/logo/drag-rotate'
 import { CartoonEffect } from '@/gl/post/cartoon-effect'
 import { senseStep } from '@/gl/post/sense-envelope'
 import { Renderer } from '@/gl/renderer'
