@@ -79,7 +79,7 @@ export class CartoonEffect implements PostEffect {
   private readonly light = uniform(0.62)
 
   /** RGB split at the frame edge, in pixels. */
-  private readonly aberration = uniform(100)
+  private readonly aberration = uniform(166.3)
 
   /** Spider-sense overlay strength, 0..1. Fed per frame from the envelope. */
   private readonly senseIntensity = uniform(0)
@@ -97,11 +97,11 @@ export class CartoonEffect implements PostEffect {
   /** Mid-grey-pivot contrast: `(c - 0.5) * k + 0.5`. 1 is identity. */
   private readonly gradeContrast = uniform(1)
   /** Exponent on the result: >0 crushes shadows, <0 lifts them. 0 is identity. */
-  private readonly gradeBlackBoost = uniform(0)
+  private readonly gradeBlackBoost = uniform(0.53)
   /** Luma↔colour mix: 0 greyscale, 1 identity, >1 oversaturates. */
-  private readonly gradeSaturation = uniform(1)
+  private readonly gradeSaturation = uniform(1.35)
   /** Final uniform gain. 1 is identity. */
-  private readonly gradeBrightness = uniform(1)
+  private readonly gradeBrightness = uniform(1.28)
 
   /** Drives the overlay and the aberration boost. Clamped to 0..1. */
   setSenseIntensity(value: number): void {

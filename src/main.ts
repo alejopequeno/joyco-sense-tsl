@@ -29,7 +29,7 @@ const keyLight = new DirectionalLight(0xfff2e0, 2.1)
 keyLight.position.set(2.5, 3, 4)
 const coolFill = new DirectionalLight(0xbfd0ff, 0.7)
 coolFill.position.set(-3, -1, 2)
-const ambient = new AmbientLight(0xfff0dd, 0.3)
+const ambient = new AmbientLight(0xfff0dd, 0.87)
 scene.add(keyLight, coolFill, ambient)
 
 const backdrop = createBackdrop()
