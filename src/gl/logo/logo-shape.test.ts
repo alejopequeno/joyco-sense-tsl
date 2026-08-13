@@ -20,10 +20,10 @@ describe('createLogoShape', () => {
     expect(minY + maxY).toBeCloseTo(0, 6)
   })
 
-  it('is normalized to a height of 1, preserving the viewBox aspect', () => {
+  it('is normalized to a width of 1.6, preserving the viewBox aspect', () => {
     const { minX, maxX, minY, maxY } = bounds(createLogoShape().getPoints())
-    expect(maxY - minY).toBeCloseTo(1, 6)
-    expect(maxX - minX).toBeCloseTo(160 / 144, 6)
+    expect(maxX - minX).toBeCloseTo(1.6, 6)
+    expect(maxY - minY).toBeCloseTo((144 / 352) * 1.6, 6)
   })
 
   it('has the 13 corners of the source path', () => {

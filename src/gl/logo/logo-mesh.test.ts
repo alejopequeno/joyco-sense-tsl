@@ -30,8 +30,9 @@ describe('createLogoGeometry', () => {
     const box = geometry.boundingBox
     if (!box) throw new Error('bounding box was not computed')
 
-    // The shape is 1 unit tall before extrusion; the bevel pushes the outline
-    // outward by `bevelSize` on each side.
-    expect(box.max.y - box.min.y).toBeGreaterThan(1)
+    // The Union shape is (144/352)·1.6 units tall before extrusion; the bevel
+    // pushes the outline outward by `bevelSize` on each side.
+    const shapeHeight = (144 / 352) * 1.6
+    expect(box.max.y - box.min.y).toBeGreaterThan(shapeHeight)
   })
 })
