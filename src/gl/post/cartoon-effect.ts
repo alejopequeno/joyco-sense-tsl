@@ -99,7 +99,7 @@ export class CartoonEffect implements PostEffect {
   /** Exponent on the result: >0 crushes shadows, <0 lifts them. 0 is identity. */
   private readonly gradeBlackBoost = uniform(0.53)
   /** Luma↔colour mix: 0 greyscale, 1 identity, >1 oversaturates. */
-  private readonly gradeSaturation = uniform(1.35)
+  private readonly gradeSaturation = uniform(1.2)
   /** Final uniform gain. 1 is identity. */
   private readonly gradeBrightness = uniform(1.28)
 
