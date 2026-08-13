@@ -66,39 +66,37 @@ describe('HeroDirector', () => {
     expect(last.boost).toBe(false)
   })
 
-  it('a tap arms a swap that fires as the pose burst climbs', () => {
+  it('a tap never swaps the hero, even as its burst climbs the threshold', () => {
     const director = new HeroDirector()
-    // Pose begins (tap): intensity starts low and climbs.
-    director.update(1 / 60, 0.1, false, true)
+    // Pose begins (tap): intensity starts low and climbs past the threshold.
+    expect(director.update(1 / 60, 0.1, false, true).swap).toBe(false)
     expect(director.update(1 / 60, 0.5, false, true).swap).toBe(false)
-    expect(director.update(1 / 60, 0.9, false, true).swap).toBe(true)
-    // Still posing, no second swap.
+    expect(director.update(1 / 60, 0.9, false, true).swap).toBe(false)
     expect(director.update(1 / 60, 0.95, false, true).swap).toBe(false)
   })
 
-  it('arming while already above the threshold swaps immediately', () => {
+  it('a tap while the envelope is hot still never swaps', () => {
     const director = new HeroDirector()
-    // Tap while the envelope is still hot from a previous burst.
-    const out = director.update(1 / 60, 0.95, false, true)
-    expect(out.swap).toBe(true)
+    expect(director.update(1 / 60, 0.95, false, true).swap).toBe(false)
   })
 
-  it('a drag cancels a pending armed swap', () => {
-    const director = new HeroDirector()
-    director.update(1 / 60, 0.1, false, true) // tap arms
-    director.update(1 / 60, 0.2, false, false) // pose aborted before the cross
+  it('a drag cancels a pending triggered swap', () => {
+    const director = new HeroDirector({ autoCycle: false })
+    director.trigger()
+    director.update(1 / 60, 0.1, false, false) // consumed: bursting + armed
     director.update(1 / 60, 0.3, true, false) // drag starts — arm forgotten
     director.update(1 / 60, 0.5, false, false)
     expect(director.update(1 / 60, 0.9, false, false).swap).toBe(false)
   })
 
-  it('an immediate hot-fire consumes any pending arm', () => {
-    const director = new HeroDirector()
-    director.update(1 / 60, 0.1, false, true) // arms low
-    director.update(1 / 60, 0.2, false, false) // pose aborted, arm pending
-    // New tap while hot: fires once, and the stale arm must not fire again
-    // on the next unrelated cross.
-    expect(director.update(1 / 60, 0.95, false, true).swap).toBe(true)
+  it('a hot trigger consumes any pending arm', () => {
+    const director = new HeroDirector({ autoCycle: false })
+    director.trigger()
+    director.update(1 / 60, 0.1, false, false) // consumed low: arm pending
+    // Second trigger while hot: fires once, and the stale arm must not fire
+    // again on the next unrelated cross.
+    director.trigger()
+    expect(director.update(1 / 60, 0.95, false, false).swap).toBe(true)
     director.update(1 / 60, 0.5, false, false)
     expect(director.update(1 / 60, 0.9, false, false).swap).toBe(false)
   })

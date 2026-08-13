@@ -21,7 +21,6 @@ export class HeroDirector {
   private bursting = false
   private burstTimer = 0
   private armed = false
-  private wasPosing = false
   private wasDragging = false
   private previousIntensity = 0
 
@@ -46,15 +45,8 @@ export class HeroDirector {
     if (dragging && !this.wasDragging) this.armed = false
     this.wasDragging = dragging
 
-    // A tap (pose start) arms a swap. If the envelope is already hot from a
-    // previous burst the rising cross will never come — fire immediately.
-    if (posing && !this.wasPosing) {
-      if (intensity >= SWAP_AT_INTENSITY) {
-        swap = true
-        this.armed = false
-      } else this.armed = true
-    }
-    this.wasPosing = posing
+    // Touching the hero never swaps it — a tap only poses and flashes. Swaps
+    // come from trigger() (the debug button) or the optional auto cycle.
 
     // The idle clock only runs while nothing else is going on.
     if (dragging || posing || this.bursting) this.idle = 0
