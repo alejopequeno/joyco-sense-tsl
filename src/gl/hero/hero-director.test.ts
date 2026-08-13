@@ -102,4 +102,26 @@ describe('HeroDirector', () => {
     director.update(1 / 60, 0.5, false, false)
     expect(director.update(1 / 60, 0.9, false, false).swap).toBe(false)
   })
+
+  it('never auto-bursts with autoCycle off', () => {
+    const director = new HeroDirector({ autoCycle: false })
+    const last = idleFor(director, AUTO_CYCLE_SECONDS * 3)
+    expect(last.boost).toBe(false)
+    expect(last.swap).toBe(false)
+  })
+
+  it('trigger() runs the full burst-and-swap even with autoCycle off', () => {
+    const director = new HeroDirector({ autoCycle: false })
+    director.trigger()
+    expect(director.update(1 / 60, 0, false, false).boost).toBe(true)
+    // Envelope climbing under the boost: swap fires on the cross.
+    expect(director.update(1 / 60, 0.5, false, false).swap).toBe(false)
+    expect(director.update(1 / 60, 0.9, false, false).swap).toBe(true)
+  })
+
+  it('trigger() while the envelope is hot swaps immediately', () => {
+    const director = new HeroDirector({ autoCycle: false })
+    director.trigger()
+    expect(director.update(1 / 60, 0.95, false, false).swap).toBe(true)
+  })
 })

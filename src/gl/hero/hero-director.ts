@@ -15,6 +15,8 @@ export const BURST_HOLD_SECONDS = 1.2
 export const SWAP_AT_INTENSITY = 0.85
 
 export class HeroDirector {
+  private readonly autoCycle: boolean
+  private triggered = false
   private idle = 0
   private bursting = false
   private burstTimer = 0
@@ -22,6 +24,15 @@ export class HeroDirector {
   private wasPosing = false
   private wasDragging = false
   private previousIntensity = 0
+
+  constructor(options: { autoCycle?: boolean } = {}) {
+    this.autoCycle = options.autoCycle ?? true
+  }
+
+  /** Queues a manual burst-and-swap, consumed on the next update. */
+  trigger(): void {
+    this.triggered = true
+  }
 
   update(
     dt: number,
@@ -49,7 +60,9 @@ export class HeroDirector {
     if (dragging || posing || this.bursting) this.idle = 0
     else this.idle += dt
 
-    if (this.idle >= AUTO_CYCLE_SECONDS) {
+    const autoFire = this.autoCycle && this.idle >= AUTO_CYCLE_SECONDS
+    if (autoFire || this.triggered) {
+      this.triggered = false
       this.bursting = true
       this.burstTimer = 0
       this.idle = 0

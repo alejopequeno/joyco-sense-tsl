@@ -48,7 +48,7 @@ const dragRotate = new DragRotate(heroes.group, canvas, ticker)
 
 const cartoon = new CartoonEffect()
 
-const director = new HeroDirector()
+const director = new HeroDirector({ autoCycle: false })
 
 new Renderer({
   canvas,
@@ -95,4 +95,7 @@ debug.folder('look', (folder) => {
     folder.addBinding(light, 'intensity', { label: `${label} intensity`, min: 0, max: 4 })
     folder.addBinding(light, 'color', { label: `${label} color`, color: { type: 'float' } })
   }
+})
+debug.folder('hero', (folder) => {
+  folder.addButton({ title: 'next hero' }).on('click', () => director.trigger())
 })
