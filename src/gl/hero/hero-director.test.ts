@@ -82,4 +82,24 @@ describe('HeroDirector', () => {
     const out = director.update(1 / 60, 0.95, false, true)
     expect(out.swap).toBe(true)
   })
+
+  it('a drag cancels a pending armed swap', () => {
+    const director = new HeroDirector()
+    director.update(1 / 60, 0.1, false, true) // tap arms
+    director.update(1 / 60, 0.2, false, false) // pose aborted before the cross
+    director.update(1 / 60, 0.3, true, false) // drag starts — arm forgotten
+    director.update(1 / 60, 0.5, false, false)
+    expect(director.update(1 / 60, 0.9, false, false).swap).toBe(false)
+  })
+
+  it('an immediate hot-fire consumes any pending arm', () => {
+    const director = new HeroDirector()
+    director.update(1 / 60, 0.1, false, true) // arms low
+    director.update(1 / 60, 0.2, false, false) // pose aborted, arm pending
+    // New tap while hot: fires once, and the stale arm must not fire again
+    // on the next unrelated cross.
+    expect(director.update(1 / 60, 0.95, false, true).swap).toBe(true)
+    director.update(1 / 60, 0.5, false, false)
+    expect(director.update(1 / 60, 0.9, false, false).swap).toBe(false)
+  })
 })

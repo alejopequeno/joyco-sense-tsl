@@ -20,6 +20,7 @@ export class HeroDirector {
   private burstTimer = 0
   private armed = false
   private wasPosing = false
+  private wasDragging = false
   private previousIntensity = 0
 
   update(
@@ -30,11 +31,17 @@ export class HeroDirector {
   ): { boost: boolean; swap: boolean } {
     let swap = false
 
+    // Dragging means the user moved on — forget any pending gesture.
+    if (dragging && !this.wasDragging) this.armed = false
+    this.wasDragging = dragging
+
     // A tap (pose start) arms a swap. If the envelope is already hot from a
     // previous burst the rising cross will never come — fire immediately.
     if (posing && !this.wasPosing) {
-      if (intensity >= SWAP_AT_INTENSITY) swap = true
-      else this.armed = true
+      if (intensity >= SWAP_AT_INTENSITY) {
+        swap = true
+        this.armed = false
+      } else this.armed = true
     }
     this.wasPosing = posing
 
@@ -46,8 +53,10 @@ export class HeroDirector {
       this.bursting = true
       this.burstTimer = 0
       this.idle = 0
-      if (intensity >= SWAP_AT_INTENSITY) swap = true
-      else this.armed = true
+      if (intensity >= SWAP_AT_INTENSITY) {
+        swap = true
+        this.armed = false
+      } else this.armed = true
     }
 
     if (this.bursting) {
