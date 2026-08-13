@@ -36,7 +36,7 @@ scene.add(keyLight, coolFill, ambient)
 const backdrop = createBackdrop()
 scene.add(backdrop.mesh)
 
-const heroes = new HeroCycle()
+const heroes = await HeroCycle.create()
 scene.add(heroes.group)
 
 const ticker = new Ticker()
@@ -77,6 +77,7 @@ ticker.add((dt) => {
     dragRotate.isDragging || dragRotate.isPosing || verdict.boost
   )
   if (verdict.swap) heroes.advance()
+  heroes.update(dt)
   cartoon.setSenseIntensity(senseIntensity)
 })
 
