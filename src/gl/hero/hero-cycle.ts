@@ -24,7 +24,7 @@ const TORUS_KNOT_RADIAL_SEGMENTS = 32
 const SUZANNE_URL = '/suzanne.glb'
 // Matches the other cast members' visual weight (logo and torus knot both
 // read at roughly this height).
-const SUZANNE_HEIGHT = 0.9
+const SUZANNE_HEIGHT = 1.0
 
 /** How many shapes cycle through the mesh — index arithmetic below assumes 3. */
 const CAST_SIZE = 3
