@@ -1,18 +1,19 @@
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
-import { attribute, mx_noise_float, transformNormalToView, uniform, vec3 } from 'three/tsl'
+import { attribute, transformNormalToView, uniform } from 'three/tsl'
 import { BufferAttribute, BufferGeometry, Group, Mesh, Object3D, TorusKnotGeometry } from 'three/webgpu'
 
 import { Disposer } from '@/gl/dispose'
 import { buildMorphSet } from '@/gl/hero/morph-geometry'
+import { SWAP_FLIP_AT, SWAP_SECONDS, swapScale } from '@/gl/hero/swap-scale'
 import { createLogoGeometry } from '@/gl/logo/logo-mesh'
 import { createSpiderVerseMaterial } from '@/gl/materials/spider-verse-material'
 
 /**
  * The rotating cast of hero shapes — logo, torus knot, Suzanne — blended
- * vertex-by-vertex inside one mesh's shader, so a swap reads as triangles
- * scattering apart and reassembling instead of a hard cut. The group is what
- * DragRotate rotates, so pose survives every morph.
+ * vertex-by-vertex inside one mesh's shader. A swap reads as a scale-punch:
+ * bulge, collapse to zero, flip the shape while invisible, pop back. The
+ * group is what DragRotate rotates, so pose survives every swap.
  */
 
 const TORUS_KNOT_RADIUS = 0.42
@@ -27,11 +28,6 @@ const SUZANNE_HEIGHT = 0.9
 
 /** How many shapes cycle through the mesh — index arithmetic below assumes 3. */
 const CAST_SIZE = 3
-
-// Tuning knobs for the morph feel.
-const SCATTER_FREQUENCY = 3
-const SCATTER_DISTANCE = 0.65
-const MORPH_SECONDS = 1
 
 /**
  * Loads Suzanne, flattens the loaded scene graph into one triangle soup in
@@ -73,6 +69,9 @@ async function loadSuzanneGeometry(): Promise<BufferGeometry> {
   const nonIndexed = merged.index ? merged.toNonIndexed() : merged
   if (merged.index) merged.dispose()
 
+  // The export is Blender Z-up; without this she loads face-down.
+  nonIndexed.rotateX(-Math.PI / 2)
+
   nonIndexed.computeBoundingBox()
   const box = nonIndexed.boundingBox
   if (!box) throw new Error('suzanne.glb geometry has no bounding box')
@@ -90,10 +89,10 @@ async function loadSuzanneGeometry(): Promise<BufferGeometry> {
 export class HeroCycle {
   readonly group = new Group()
   private readonly disposer = new Disposer()
+  private readonly mesh: Mesh
   // weights[from] / weights[to] blend between the resting and incoming
-  // shape; the third is always 0. morphMix drives the scatter, 0 at rest.
+  // shape; the third is always 0.
   private readonly weights = [uniform(1), uniform(0), uniform(0)]
-  private readonly morphMix = uniform(0)
 
   private from = 0
   private to = 0
@@ -129,18 +128,7 @@ export class HeroCycle {
       .add(vec3Attribute('morphPos1').mul(this.weights[1]))
       .add(vec3Attribute('morphPos2').mul(this.weights[2]))
 
-    // Noise scatter that peaks mid-flight (4·t·(1−t)) and vanishes at rest.
-    // Seeded from the resting shape so each triangle gets a stable direction.
-    const seed = vec3Attribute('morphPos0').mul(SCATTER_FREQUENCY)
-    const scatter = vec3(
-      mx_noise_float(seed),
-      mx_noise_float(seed.add(17.3)),
-      mx_noise_float(seed.add(31.7))
-    )
-      .mul(SCATTER_DISTANCE)
-      .mul(this.morphMix.mul(this.morphMix.oneMinus()).mul(4))
-
-    material.positionNode = blended.add(scatter)
+    material.positionNode = blended
 
     const blendedNormal = vec3Attribute('morphNor0')
       .mul(this.weights[0])
@@ -150,10 +138,12 @@ export class HeroCycle {
     material.normalNode = transformNormalToView(blendedNormal)
 
     const mesh = new Mesh(geometry, material)
-    // The position node moves vertices in the shader — three has no way to
-    // know the true bounds, so a mid-morph scatter must never get culled.
+    // The scale-punch shrinks the mesh to zero and back every swap — three
+    // has no way to track that against a static bounding sphere, so it must
+    // never get culled mid-swap.
     mesh.frustumCulled = false
     this.group.add(mesh)
+    this.mesh = mesh
 
     this.disposer.add(() => geometry.dispose())
     this.disposer.add(() => material.dispose())
@@ -182,24 +172,25 @@ export class HeroCycle {
     this.progress = 0
   }
 
-  /** Advances the in-flight morph, if any, writing the weight/scatter uniforms. */
+  /** Advances a running swap: scale down, flip the shape at zero, pop back. */
   update(dt: number): void {
     if (!this.morphing) return
+    const previous = this.progress
+    this.progress = Math.min(this.progress + dt / SWAP_SECONDS, 1)
 
-    this.progress = Math.min(this.progress + dt / MORPH_SECONDS, 1)
-    // Indices are 0, 1, 2 — the one not in {from, to} is whatever's left
-    // when both are subtracted from their sum.
-    const third = 0 + 1 + 2 - this.from - this.to
+    // Flip while invisible: one-hot weights, no blending ever on screen.
+    if (previous < SWAP_FLIP_AT && this.progress >= SWAP_FLIP_AT) {
+      for (const [index, weight] of this.weights.entries()) {
+        weight.value = index === this.to ? 1 : 0
+      }
+      this.from = this.to
+    }
 
-    this.weights[this.from].value = 1 - this.progress
-    this.weights[this.to].value = this.progress
-    this.weights[third].value = 0
-    this.morphMix.value = this.progress
+    this.mesh.scale.setScalar(swapScale(this.progress))
 
     if (this.progress >= 1) {
-      this.from = this.to
       this.morphing = false
-      this.morphMix.value = 0
+      this.mesh.scale.setScalar(1)
     }
   }
 
