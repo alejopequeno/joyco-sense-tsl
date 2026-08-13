@@ -3,7 +3,8 @@ import { AmbientLight, Color, DirectionalLight, PerspectiveCamera, Scene } from 
 import { createBackdrop } from '@/gl/backdrop'
 import { debug } from '@/gl/debug/debug-tools'
 import { DragRotate } from '@/gl/logo/drag-rotate'
-import { createLogoMesh } from '@/gl/logo/logo-mesh'
+import { HeroCycle } from '@/gl/hero/hero-cycle'
+import { HeroDirector } from '@/gl/hero/hero-director'
 import { CartoonEffect } from '@/gl/post/cartoon-effect'
 import { senseStep } from '@/gl/post/sense-envelope'
 import { Renderer } from '@/gl/renderer'
@@ -35,17 +36,19 @@ scene.add(keyLight, coolFill, ambient)
 const backdrop = createBackdrop()
 scene.add(backdrop.mesh)
 
-const logo = createLogoMesh()
-scene.add(logo)
+const heroes = new HeroCycle()
+scene.add(heroes.group)
 
 const ticker = new Ticker()
 
 const spheres = new FloatingSpheres(ticker)
 scene.add(spheres.group)
 
-const dragRotate = new DragRotate(logo, canvas, ticker)
+const dragRotate = new DragRotate(heroes.group, canvas, ticker)
 
 const cartoon = new CartoonEffect()
+
+const director = new HeroDirector()
 
 new Renderer({
   canvas,
@@ -62,7 +65,18 @@ new Renderer({
 
 let senseIntensity = 0
 ticker.add((dt) => {
-  senseIntensity = senseStep(senseIntensity, dt, dragRotate.isDragging || dragRotate.isPosing)
+  const verdict = director.update(
+    dt,
+    senseIntensity,
+    dragRotate.isDragging,
+    dragRotate.isPosing
+  )
+  senseIntensity = senseStep(
+    senseIntensity,
+    dt,
+    dragRotate.isDragging || dragRotate.isPosing || verdict.boost
+  )
+  if (verdict.swap) heroes.advance()
   cartoon.setSenseIntensity(senseIntensity)
 })
 
