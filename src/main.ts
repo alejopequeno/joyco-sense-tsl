@@ -9,6 +9,12 @@ import { CartoonEffect } from '@/gl/post/cartoon-effect'
 import { senseStep } from '@/gl/post/sense-envelope'
 import { Renderer } from '@/gl/renderer'
 import { FloatingSpheres } from '@/gl/spheres/floating-spheres'
+import {
+  THUMBNAIL_FRAMES,
+  freezeAfterFrames,
+  isThumbnailRequest,
+  markReady,
+} from '@/gl/thumbnail'
 import { Ticker } from '@/gl/ticker'
 import '@/style.css'
 
@@ -61,6 +67,11 @@ new Renderer({
     camera.aspect = width / height
     camera.updateProjectionMatrix()
   },
+  ...(isThumbnailRequest(window.location.search) && {
+    onReady: () => {
+      freezeAfterFrames(ticker, THUMBNAIL_FRAMES, () => markReady(document.documentElement))
+    },
+  }),
 })
 
 let senseIntensity = 0

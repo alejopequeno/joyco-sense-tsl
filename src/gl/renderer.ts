@@ -30,6 +30,11 @@ export type RendererOptions = {
    * pipeline is built. Optional so headless/test callers can skip it.
    */
   debug?: { attachScene(ctx: SceneContext): () => void }
+  /**
+   * Fired once the backend has settled and the render slot is on the ticker —
+   * the first moment a tick actually reaches the canvas.
+   */
+  onReady?: () => void
 }
 
 /**
@@ -46,7 +51,7 @@ export class Renderer {
   private disposed = false
   private ready = false
 
-  constructor({ canvas, scene, camera, ticker, onResize, post, debug }: RendererOptions) {
+  constructor({ canvas, scene, camera, ticker, onResize, post, debug, onReady }: RendererOptions) {
     this.canvas = canvas
     this.onResize = onResize
 
@@ -87,6 +92,7 @@ export class Renderer {
           : { draw: () => renderer.render(scene, renderCamera), setCamera: null }
         const removeRender = ticker.add(draw, PRIORITY.RENDER)
         this.disposer.add(removeRender)
+        onReady?.()
 
         if (debug) {
           const setRenderCamera = (cam: Camera | null): void => {
